@@ -1,0 +1,12 @@
+[project]
+name = "tiktok-save"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=2.13.0",
+    "playwright==1.52.0",
+    "tiktokapi==7.1.0",
+    "tqdm>=4.67.1",
+]

@@ -111,7 +111,7 @@ async def get_videos():
                 # Remove from failures if it was successfully downloaded
                 failures.pop(tiktok_id, None)
 
-                time.sleep(1)  # don't be suspicious
+                time.sleep(random.randint(1,5))  # don't be suspicious
             except Exception as e:
                 error_message = f"Error processing video {link}: {str(e)}"
 
@@ -122,7 +122,7 @@ async def get_videos():
                         save_files(location, tiktok_dict, altVideoBytes, tiktok_id, "video_alt")
 
                         failures.pop(tiktok_id, None)
-                        time.sleep(1)  # don't be suspicious
+                        time.sleep(random.randint(1,5))  # don't be suspicious
                         continue
                     except Exception as e2:
                         error_message = f"Failed again for {link}: {str(e2)}"
