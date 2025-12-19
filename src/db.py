@@ -285,7 +285,22 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             results.append({"status": "success", "video_id": video_id, "size_bytes": len(video_bytes)})
 
         except Exception as e:
+            conn.close()
             error_str = str(e).lower()
+
+            # Try alternative download method before giving up
+            if "imagepost" not in error_str:
+                try:
+                    alt_result = await alt_video_download(video_id, tt_api, whisper_model)
+                    if alt_result.get('status') == 'success':
+                        results.append(alt_result)
+                        continue
+                except Exception as alt_e:
+                    pass
+
+            # If alternative method also failed, categorize the error
+            conn = get_connection()
+            cursor = conn.cursor()
 
             if "deleted" in error_str or "removed" in error_str:
                 cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
@@ -307,6 +322,125 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
 
     gc.collect()
     return results
+
+
+async def alt_video_download(video_id, tiktok_api, whisper_model):
+    """
+    Alternative video download method using bitrate URLs directly.
+    Based on https://github.com/financiallyruined/TikTok-Multi-Downloader
+
+    Args:
+        video_id: video id from the database
+        tiktok_api: TikTokApi session
+        whisper_model: WhisperModel instance
+
+    Returns:
+        dict with status and message
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Get video URL from database
+        cursor.execute("SELECT tiktok_url FROM video_data WHERE id = ?", (video_id,))
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            return {"status": "error", "message": f"Video {video_id} not found in database"}
+
+        tiktok_url = result[0]
+
+        # Convert share URL to proper format
+        tiktok_url = tiktok_url.replace('tiktokv', 'tiktok').replace('share', '@')
+
+        # Get video metadata
+        video = tiktok_api.video(url=tiktok_url)
+        video_info = await video.info()
+
+        # Extract metadata
+        author = video_info.get('author', {})
+        title = video_info.get('music', {}).get('title', '')
+        uploader = author.get('uniqueId') or author.get('nickname', '')
+        uploader_id = author.get('uniqueId', '')
+        desc = video_info.get('desc', '')
+        create_time = int(video_info.get('createTime', 0))
+        duration = video_info.get('video', {}).get('duration', 0)
+
+        # Try alternative download method using bitrate URLs
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'HX-Request': 'true',
+            'HX-Trigger': 'search-btn',
+            'HX-Target': 'tiktok-parse-result',
+            'HX-Current-URL': 'https://tiktokio.com/',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Origin': 'https://tiktokio.com',
+            'Connection': 'keep-alive',
+            'Referer': 'https://tiktokio.com/'
+        }
+
+        # Get alternative video URLs from bitrate info
+        altVideoUrls = video_info["video"]["bitrateInfo"][0]["PlayAddr"]["UrlList"]
+
+        video_bytes = None
+        for url in altVideoUrls:
+            if url.startswith("https://www.tiktok.com"):
+                response = requests.get(url, headers=headers, stream=True)
+                video_bytes = response.content
+                break
+
+        if not video_bytes:
+            conn.close()
+            return {"status": "error", "message": "No valid download URL found in bitrate info"}
+
+        download_timestamp = int(time.time())
+
+        # Transcribe video
+        _ = transcribe_video(video_id, video_bytes, whisper_model)
+
+        # Update video_data table with metadata and clear error flag
+        cursor.execute("""
+            UPDATE video_data
+            SET title = ?, uploader = ?, uploader_id = ?, desc = ?,
+                create_time = ?, duration = ?, content_type = ?,
+                download_status = 1, video_has_error = 0
+            WHERE id = ?
+        """, (title, uploader, uploader_id, desc, create_time, duration,
+              "video", video_id))
+
+        # Insert video BLOB into videos table
+        cursor.execute("""
+            INSERT INTO videos (id, video_blob, date_downloaded)
+            VALUES (?, ?, ?)
+        """, (video_id, video_bytes, download_timestamp))
+
+        conn.commit()
+        conn.close()
+
+        return {"status": "success", "video_id": video_id, "size_bytes": len(video_bytes)}
+
+    except Exception as e:
+        error_str = str(e).lower()
+
+        if "deleted" in error_str or "removed" in error_str:
+            cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+            conn.commit()
+            conn.close()
+            return {"status": "deleted", "message": str(e)}
+
+        elif "private" in error_str or "unavailable" in error_str:
+            cursor.execute("UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+            conn.commit()
+            conn.close()
+            return {"status": "private", "message": str(e)}
+
+        else:
+            cursor.execute("UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,))
+            conn.commit()
+            conn.close()
+            return {"status": "error", "message": str(e)}
 
 
 async def download_image_post(video_ids, tiktok_api=None):
