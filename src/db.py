@@ -1,11 +1,16 @@
+import gc
+import json
+import os
 import sqlite3
-import os
-from pathlib import Path
-
+import tempfile
 import time
-import os
+import zipfile
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
+import requests
 from TikTokApi import TikTokApi
-
+from faster_whisper import WhisperModel
 
 DB_PATH = Path(__file__).parent.parent / "db" / "tiktok_archive.db"
 
@@ -45,7 +50,8 @@ def init_database():
              transcription TEXT,
              date_favorited INTEGER,
              video_is_deleted BOOLEAN DEFAULT 0,
-             video_is_private BOOLEAN DEFAULT 0
+             video_is_private BOOLEAN DEFAULT 0,
+             video_has_error BOOLEAN DEFAULT 0
            )
            """)
 
@@ -102,8 +108,7 @@ def ingest_json(json_file):
     Returns:
         Dictionary with statistics about the ingestion process
     """
-    import json
-    from datetime import datetime
+
 
     # Load the JSON file
     with open(json_file, 'r', encoding='utf-8') as f:
@@ -189,7 +194,7 @@ def ingest_json(json_file):
 #                 │                                               │
 #                 └─────────────► Transcribe video ───────────────┘
 
-async def download_video_and_store(video_ids, tiktok_api=None):
+async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=None):
     """
     Downloads videos, then immediately stores them in the database as BLOBs.
     Routes to download_image_post if it's an image collection.
@@ -197,6 +202,7 @@ async def download_video_and_store(video_ids, tiktok_api=None):
     Args:
         video_ids: list of video ids to download
         tiktok_api: Optional TikTokApi session. If None, creates a new session.
+        whisper_model: Optional WhisperModel instance. If None, creates a new one.
 
     Returns:
         list of dicts with status and message for each video
@@ -254,6 +260,9 @@ async def download_video_and_store(video_ids, tiktok_api=None):
             video_bytes = await video.bytes()
             download_timestamp = int(time.time())
 
+            # Immediately transcribe video
+            _ = transcribe_video(video_id, video_bytes, whisper_model)
+
             # Update video_data table with metadata
             cursor.execute("""
                 UPDATE video_data
@@ -279,21 +288,24 @@ async def download_video_and_store(video_ids, tiktok_api=None):
             error_str = str(e).lower()
 
             if "deleted" in error_str or "removed" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_deleted = 1 WHERE id = ?", (video_id,))
+                cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
                 conn.commit()
                 conn.close()
                 results.append({"status": "deleted", "message": str(e)})
 
             elif "private" in error_str or "unavailable" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_private = 1 WHERE id = ?", (video_id,))
+                cursor.execute("UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?", (video_id,))
                 conn.commit()
                 conn.close()
                 results.append({"status": "private", "message": str(e)})
 
             else:
+                cursor.execute("UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,))
+                conn.commit()
                 conn.close()
                 results.append({"status": "error", "message": str(e)})
 
+    gc.collect()
     return results
 
 
@@ -308,9 +320,7 @@ async def download_image_post(video_ids, tiktok_api=None):
     Returns:
         list of dicts with status and message for each video
     """
-    import zipfile
-    from io import BytesIO
-    import requests
+
 
     results = []
 
@@ -401,57 +411,76 @@ async def download_image_post(video_ids, tiktok_api=None):
             error_str = str(e).lower()
 
             if "deleted" in error_str or "removed" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_deleted = 1 WHERE id = ?", (video_id,))
+                cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
                 conn.commit()
                 conn.close()
                 results.append({"status": "deleted", "message": str(e)})
 
             elif "private" in error_str or "unavailable" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_private = 1 WHERE id = ?", (video_id,))
+                cursor.execute("UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?", (video_id,))
                 conn.commit()
                 conn.close()
                 results.append({"status": "private", "message": str(e)})
 
             else:
+                cursor.execute("UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,))
+                conn.commit()
                 conn.close()
                 results.append({"status": "error", "message": str(e)})
 
     return results
 
 
-def transcribe_video(video_id, bytes_stream):
+def transcribe_video(video_id, bytes_stream, whisper_model=None):
     """
     Transcribes a video, then stores the transcription in the database, marking the transcription flag as TRUE.
 
     Args:
         video_id: video id from the database
         bytes_stream: bytesio object of the video bytes
+        whisper_model: Optional WhisperModel instance. If None, creates a new one.
 
     Returns:
         transcription: a string that is the transcription of the video.
 
     """
-    from openai import OpenAI
-    from io import BytesIO
 
-    client = OpenAI()
-
-    # Create BytesIO object if bytes passed directly
+    # Get bytes from stream
     if isinstance(bytes_stream, bytes):
-        video_file = BytesIO(bytes_stream)
+        video_bytes = bytes_stream
     else:
-        video_file = bytes_stream
+        video_bytes = bytes_stream.read()
 
-    # Whisper needs a filename hint for format detection
-    video_file.name = "video.mp4"
+    # Write to temporary file
+    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
+        temp_file.write(video_bytes)
+        temp_path = temp_file.name
 
-    # Transcribe using Whisper
-    transcript = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=video_file
-    )
+    # Determine which model to use
+    if whisper_model:
+        model = whisper_model
+    else:
+        # Detect CUDA availability
+        # if torch.cuda.is_available():
+        #     device = "cuda"
+        #     compute_type = "float16"
+        # else:
+        #     device = "cpu"
+        #     compute_type = "int8"
+        device = "cpu"
+        compute_type = "int8"
 
-    transcription_text = transcript.text
+        # Load model (base model is a good balance of speed/accuracy)
+        model = WhisperModel("base", device=device, compute_type=compute_type)
+
+    # Transcribe
+    segments, info = model.transcribe(temp_path, beam_size=5)
+
+    # Combine all segments into one text
+    transcription_text = " ".join([segment.text for segment in segments])
+
+    # Clean up temp file
+    os.unlink(temp_path)
 
     # Store transcription in database
     conn = get_connection()
