@@ -631,3 +631,32 @@ def transcribe_video(video_id, bytes_stream, whisper_model=None):
     conn.close()
 
     return transcription_text
+
+
+def cleanup_error_flags():
+    """
+    Cleans up stale error flags for successfully downloaded videos.
+    If a video has download_status = 1 but video_has_error = 1,
+    this clears the error flag.
+
+    Args:
+        None
+
+    Returns:
+        Number of videos cleaned up
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE video_data
+        SET video_has_error = 0
+        WHERE download_status = 1 AND video_has_error = 1
+    """)
+
+    updated_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+
+    print(f"Cleaned up error flags for {updated_count} videos")
+    return updated_count

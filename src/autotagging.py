@@ -2,7 +2,19 @@ from transformers import pipeline
 from db import get_connection
 
 
-# User-defined tags
+# ============================================================
+# USER-DEFINED TAGS
+# ============================================================
+# Edit this list to change which tags are used for classification.
+# Tags should be simple, descriptive categories.
+# Examples: "recipes", "anime", "tutorial", "comedy", "music"
+#
+# After changing tags:
+# 1. Clear existing tags: DELETE FROM tags;
+# 2. Re-run this script: python src/autotagging.py
+#
+# Confidence threshold is set at line 71 (currently 0.8)
+# ============================================================
 TAGS = ["recipes", "anime"]
 
 

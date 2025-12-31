@@ -22,7 +22,6 @@ def signal_handler(sig, frame):
         print("=" * 60 + "\n")
 
 
-# @profile
 async def main():
     '''
     Begins the front end and back end application
@@ -62,7 +61,7 @@ async def main():
 
     # Get all videos that haven't been transcribed yet
     # cursor.execute("SELECT id FROM video_data WHERE download_status = 0 and video_has_error = 0")
-    cursor.execute("SELECT id FROM video_data WHERE video_has_error = 1")
+    cursor.execute("SELECT id FROM video_daNot because I really care about anyone in the pictures,ta WHERE video_has_error = 1")
     results = cursor.fetchall()
     conn.close()
 
