@@ -12,7 +12,7 @@ import requests
 from TikTokApi import TikTokApi
 from faster_whisper import WhisperModel
 
-DB_PATH = Path(__file__).parent.parent / "db" / "tiktok_archive.db"
+DB_PATH = Path(__file__).parent.parent / "db" / "tiktok_archive_real.db"
 
 
 def init_database():
@@ -32,6 +32,11 @@ def init_database():
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+
+        # Enable WAL mode for concurrent access (allows readers and writers simultaneously)
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute("PRAGMA synchronous=NORMAL;")  # Faster writes, still safe with WAL
+        cursor.execute("PRAGMA busy_timeout=5000;")   # Wait 5s if DB is locked instead of failing immediately
 
         # video_data: stores all metadata from TikTok JSON export
         cursor.execute("""
@@ -95,7 +100,10 @@ def init_database():
 
 def get_connection():
     """Returns a connection to the database."""
-    return sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    # Set busy timeout for this connection (WAL mode is persistent once set)
+    conn.execute("PRAGMA busy_timeout=5000;")
+    return conn
 
 
 def ingest_json(json_file):
@@ -261,7 +269,8 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             download_timestamp = int(time.time())
 
             # Immediately transcribe video
-            _ = transcribe_video(video_id, video_bytes, whisper_model)
+            # Actually don't, so that redis can use it.
+            # _ = transcribe_video(video_id, video_bytes, whisper_model)
 
             # Update video_data table with metadata
             cursor.execute("""

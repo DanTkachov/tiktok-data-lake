@@ -2,6 +2,9 @@
 
 A Python utility for backing up your liked and bookmarked videos on TikTok. It will download the videos themselves as mp4 files, and associated metadata for each video as JSON.
 
+# Docker Setup
+This project uses redis
+
 ## Before Starting
 
 You will need a JSON export of your TikTok data. TikTok lets you request this from the app, and it can take a few days for them to prepare this, so if you're planning on using this tool soon, consider requesting it now. You need the **JSON** version.
