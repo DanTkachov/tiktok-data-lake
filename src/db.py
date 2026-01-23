@@ -11,8 +11,13 @@ from pathlib import Path
 import requests
 from TikTokApi import TikTokApi
 from faster_whisper import WhisperModel
+import asyncio
 
-DB_PATH = Path(__file__).parent.parent / "db" / "tiktok_archive_real.db"
+
+db_path_real = Path(__file__).parent.parent / "db" / "tiktok_archive_real.db"
+db_path_mock = Path(__file__).parent.parent / "db" / "tiktok_archive_mock.db"
+
+DB_PATH = db_path_mock
 
 
 def init_database():
@@ -226,31 +231,41 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
         await tt_api.create_sessions(ms_tokens=[ms_token], num_sessions=1, sleep_after=3)
 
     # Loop through all videos
+    conn = get_connection()
+
     for video_id in video_ids:
-        conn = get_connection()
         cursor = conn.cursor()
 
         try:
             # Get video URL from database
+            print(f"🔍 Querying database for video {video_id}")
             cursor.execute("SELECT tiktok_url FROM video_data WHERE id = ?", (video_id,))
             result = cursor.fetchone()
             if not result:
-                conn.close()
                 results.append({"status": "error", "message": f"Video {video_id} not found in database"})
                 continue
 
             tiktok_url = result[0]
+            print(f"📍 Found URL: {tiktok_url}")
 
             # Convert share URL to proper format
             tiktok_url = tiktok_url.replace('tiktokv', 'tiktok').replace('share', '@')
+            print(f"🔄 Converted URL: {tiktok_url}")
 
             # Get video metadata
+            print(f"🌐 Fetching video info from TikTok API...")
             video = tt_api.video(url=tiktok_url)
-            video_info = await video.info()
+
+            # Add timeout to prevent infinite hang
+            try:
+                video_info = await asyncio.wait_for(video.info(), timeout=30.0)
+                print(f"✅ Got video info!")
+            except asyncio.TimeoutError:
+                print(f"❌ Timeout fetching video info after 30 seconds")
+                raise Exception("TikTok API timeout - possible auth or rate limit issue")
 
             # Check if it's an image post - pawn off to image handler
             if "imagePost" in video_info:
-                conn.close()
                 image_result = await download_image_post([video_id], tt_api)
                 results.append(image_result[0])
                 continue
@@ -289,12 +304,10 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             """, (video_id, video_bytes, download_timestamp))
 
             conn.commit()
-            conn.close()
 
             results.append({"status": "success", "video_id": video_id, "size_bytes": len(video_bytes)})
 
         except Exception as e:
-            conn.close()
             error_str = str(e).lower()
 
             # Try alternative download method before giving up
@@ -314,20 +327,19 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             if "deleted" in error_str or "removed" in error_str:
                 cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
                 conn.commit()
-                conn.close()
                 results.append({"status": "deleted", "message": str(e)})
 
             elif "private" in error_str or "unavailable" in error_str:
                 cursor.execute("UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?", (video_id,))
                 conn.commit()
-                conn.close()
                 results.append({"status": "private", "message": str(e)})
 
             else:
                 cursor.execute("UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,))
                 conn.commit()
-                conn.close()
                 results.append({"status": "error", "message": str(e)})
+        finally:
+            conn.close()
 
     gc.collect()
     return results

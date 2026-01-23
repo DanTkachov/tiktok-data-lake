@@ -2,8 +2,26 @@
 
 A Python utility for backing up your liked and bookmarked videos on TikTok. It will download the videos themselves as mp4 files, and associated metadata for each video as JSON.
 
-# Docker Setup
-This project uses redis
+# Running the Project
+
+This project uses Redis (via Docker) and Celery for distributed task processing.
+
+## Starting Services
+
+### 1. Start Redis
+```bash
+docker compose up -d
+```
+
+### 2. Start Celery Worker (Downloads Queue)
+```bash
+celery -A src.tasks worker --queues=downloads --concurrency=1 -n tiktok_download_worker --loglevel=info
+```
+
+### 3. Run Test Script
+```bash
+uv run src/test.py
+```
 
 ## Before Starting
 
