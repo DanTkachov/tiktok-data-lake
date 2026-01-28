@@ -8,7 +8,7 @@ from main import setup_database, get_videos_to_download
 print("=" * 60)
 print("SETTING UP TEST DATABASE")
 print("=" * 60)
-setup_database("../tiktok-data/user_data_tiktok_mock.json")
+setup_database("../tiktok-data/user_data_mock_100.json")
 
 # Get videos to download
 print("\nGetting videos to download...")
@@ -25,7 +25,7 @@ print(f"Testing with first video: {video_ids[0]}\n")
 print("=" * 60)
 print("SUBMITTING DOWNLOAD TASK TO CELERY")
 print("=" * 60)
-for video in video_ids[0:5]:
+for video in video_ids:
     result = download_task.delay(video)
     print(f"Task submitted. Task ID: {result.id}")
     print(f"Waiting for task to complete...\n")

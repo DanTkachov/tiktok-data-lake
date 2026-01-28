@@ -76,5 +76,116 @@ def download_task(video_id):
 
 
 @app.task(queue="transcription")
-def transcribe_video(video_id):
+def transcribe_task(video_id):
+    """
+    Transcribes a single video from the database.
 
+    Args:
+        video_id: ID of the video to transcribe
+
+    Returns:
+        dict with status and message
+    """
+    from src.db import get_connection, transcribe_video
+
+    print(f"🎤 Starting transcription for video ID: {video_id}")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Check if already transcribed (idempotency)
+        cursor.execute("SELECT transcription_status, content_type FROM video_data WHERE id = ?", (video_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            conn.close()
+            return {"status": "error", "message": f"Video {video_id} not found in database"}
+
+        transcription_status, content_type = result
+
+        if transcription_status == 1:
+            conn.close()
+            print(f"⏭️  Already transcribed: {video_id}")
+            return {"status": "skipped", "message": "Already transcribed"}
+
+        # Skip non-video content (images don't need transcription)
+        if content_type != "video":
+            conn.close()
+            print(f"⏭️  Skipping non-video content: {video_id} (type: {content_type})")
+            return {"status": "skipped", "message": f"Content type is {content_type}, not video"}
+
+        # Get video BLOB from database
+        cursor.execute("SELECT video_blob FROM videos WHERE id = ?", (video_id,))
+        blob_result = cursor.fetchone()
+
+        if not blob_result:
+            conn.close()
+            return {"status": "error", "message": f"Video BLOB not found for {video_id}"}
+
+        video_bytes = blob_result[0]
+        conn.close()
+
+        # Transcribe the video (this function updates the database internally)
+        transcription = transcribe_video(video_id, video_bytes, whisper_model=None)
+
+        print(f"✅ Transcription complete for {video_id}: {len(transcription)} characters")
+        return {"status": "success", "video_id": video_id, "transcription_length": len(transcription)}
+
+    except Exception as e:
+        conn.close()
+        print(f"❌ Transcription failed for {video_id}: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.task(queue="ocr")
+def ocr_images(video_id):
+
+
+
+def queue_transcriptions():
+    """
+    Queries the database for all untranscribed videos and queues them to Redis.
+    This is a coordinator function - run it manually or on a schedule.
+
+    Returns:
+        dict with statistics about queued videos
+    """
+    from src.db import get_connection
+
+    print("\n" + "=" * 60)
+    print("QUEUEING TRANSCRIPTION TASKS")
+    print("=" * 60)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get all videos that are downloaded but not transcribed
+    cursor.execute("""
+        SELECT id FROM video_data
+        WHERE download_status = 1
+          AND transcription_status = 0
+          AND content_type = 'video'
+        ORDER BY date_favorited DESC
+    """)
+
+    video_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    if not video_ids:
+        print("No videos found needing transcription")
+        print("=" * 60 + "\n")
+        return {"total": 0, "queued": 0}
+
+    print(f"Found {len(video_ids)} videos needing transcription")
+    print(f"Queueing tasks to Redis...")
+
+    # Queue all videos to Redis
+    queued_count = 0
+    for video_id in video_ids:
+        transcribe_task.delay(video_id)
+        queued_count += 1
+
+    print(f"✅ Successfully queued {queued_count} transcription tasks")
+    print("=" * 60 + "\n")
+
+    return {"total": len(video_ids), "queued": queued_count}

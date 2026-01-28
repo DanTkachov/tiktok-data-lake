@@ -16,8 +16,10 @@ import asyncio
 
 db_path_real = Path(__file__).parent.parent / "db" / "tiktok_archive_real.db"
 db_path_mock = Path(__file__).parent.parent / "db" / "tiktok_archive_mock.db"
+db_path_mock_100 = Path(__file__).parent.parent / "db" / "tiktok_archive_mock_100.db"
 
-DB_PATH = db_path_mock
+
+DB_PATH = db_path_mock_100
 
 
 def init_database():

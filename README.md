@@ -13,14 +13,53 @@ This project uses Redis (via Docker) and Celery for distributed task processing.
 docker compose up -d
 ```
 
-### 2. Start Celery Worker (Downloads Queue)
+### 2. Start Celery Workers
+
+#### Downloads Queue
 ```bash
 celery -A src.tasks worker --queues=downloads --concurrency=1 -n tiktok_download_worker --loglevel=info
 ```
 
-### 3. Run Test Script
+#### Transcription Queue
 ```bash
-uv run src/test.py
+celery -A src.tasks worker --queues=transcription --concurrency=4 -n tiktok_transcription_worker --loglevel=info
+```
+
+### 3. Queue Transcriptions
+After videos are downloaded, queue them for transcription:
+```bash
+python queue_transcriptions.py
+```
+
+### 4. Run Test Script
+```bash
+uv run src/test_database_and_download.py
+```
+
+## Transcription System
+
+This project automatically transcribes downloaded videos using Whisper (faster-whisper).
+
+### How It Works
+
+1. **Downloads complete** → Videos stored in database with `download_status = 1`
+2. **Queue transcriptions** → Run `python queue_transcriptions.py` to find all untranscribed videos
+3. **Workers process** → Celery workers pull tasks from Redis and transcribe videos in parallel
+4. **Crash recovery** → If workers crash, just re-run `queue_transcriptions.py` - it skips already-transcribed videos
+
+### Key Features
+
+- **Idempotent**: Safe to re-queue videos multiple times
+- **Parallel processing**: Run multiple transcription workers concurrently (default: 4)
+- **Crash-resistant**: Database is source of truth - Redis queue is ephemeral
+- **Auto-skip**: Skips image posts and already-transcribed videos
+
+### Manual Transcription Queue
+
+```python
+# From Python REPL or script
+from src.tasks import queue_transcriptions
+queue_transcriptions()  # Queues all untranscribed videos
 ```
 
 ## Before Starting
