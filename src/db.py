@@ -48,22 +48,24 @@ def init_database():
         # video_data: stores all metadata from TikTok JSON export
         cursor.execute("""
            CREATE TABLE IF NOT EXISTS video_data (
-             id TEXT PRIMARY KEY,
-             title TEXT,
-             uploader TEXT,
-             uploader_id TEXT,
-             desc TEXT,
-             create_time INTEGER,
-             duration INTEGER,
-             tiktok_url TEXT,
-             content_type TEXT,
-             download_status BOOLEAN DEFAULT 0,
-             transcription_status BOOLEAN DEFAULT 0,
-             transcription TEXT,
-             date_favorited INTEGER,
-             video_is_deleted BOOLEAN DEFAULT 0,
-             video_is_private BOOLEAN DEFAULT 0,
-             video_has_error BOOLEAN DEFAULT 0
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                uploader TEXT,
+                uploader_id TEXT,
+                desc TEXT,
+                create_time INTEGER,
+                duration INTEGER,
+                tiktok_url TEXT,
+                content_type TEXT,
+                download_status BOOLEAN DEFAULT 0,
+                transcription_status BOOLEAN DEFAULT 0,
+                transcription TEXT,
+                ocr_status BOOLEAN DEFAULT 0,
+                ocr TEXT,
+                date_favorited INTEGER,
+                video_is_deleted BOOLEAN DEFAULT 0,
+                video_is_private BOOLEAN DEFAULT 0,
+                video_has_error BOOLEAN DEFAULT 0
            )
            """)
 
@@ -177,8 +179,8 @@ def ingest_json(json_file):
                 INSERT INTO video_data (
                     id, title, uploader, uploader_id, desc, create_time,
                     duration, tiktok_url, download_status, transcription_status,
-                    transcription, date_favorited, video_is_deleted, video_is_private
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0)
+                    transcription, ocr_status, ocr, date_favorited, video_is_deleted, video_is_private
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0, ?, ?, 0, 0)
             """, (
                 video_id,
                 None,  # title - will be filled on download
@@ -189,6 +191,7 @@ def ingest_json(json_file):
                 None,  # duration - will be filled on download
                 link,  # tiktok_url - from TikTok export
                 None,  # transcription - will be filled later
+                None,  # ocr - will be filled later
                 date_favorited  # date_favorited - when you favorited it (as timestamp)
             ))
 
@@ -654,6 +657,88 @@ def transcribe_video(video_id, bytes_stream, whisper_model=None):
     conn.close()
 
     return transcription_text
+
+
+def ocr_images(video_id, bytes_stream, ocr_model=None):
+    """
+    Performs OCR on images from a ZIP archive, then stores the OCR text in the database,
+    marking the ocr_status flag as TRUE.
+
+    Args:
+        video_id: video id from the database
+        bytes_stream: bytes object or BytesIO of the ZIP containing images
+        ocr_model: Optional RapidOCR instance. If None, creates a new one.
+
+    Returns:
+        ocr_text: a string that is the concatenated OCR text from all images.
+
+    """
+    # Get bytes from stream
+    if isinstance(bytes_stream, bytes):
+        zip_bytes = bytes_stream
+    else:
+        zip_bytes = bytes_stream.read()
+
+    # Determine which model to use
+    if ocr_model:
+        model = ocr_model
+    else:
+        # Import RapidOCR here to avoid loading at module level
+        from rapidocr_onnxruntime import RapidOCR
+
+        # Initialize RapidOCR (uses ONNX runtime, much more stable than PaddleOCR)
+        model = RapidOCR()
+
+    # Extract images from ZIP and perform OCR
+    all_ocr_text = []
+
+    with zipfile.ZipFile(BytesIO(zip_bytes), 'r') as zip_file:
+        # Sort filenames to maintain consistent order
+        image_names = sorted(zip_file.namelist())
+
+        for image_name in image_names:
+            try:
+                # Read image bytes from ZIP
+                image_bytes = zip_file.read(image_name)
+
+                # Perform OCR directly on raw bytes (RapidOCR handles decoding internally)
+                # This preserves alpha channel and image quality better than manual decoding
+                # RapidOCR returns: (result, elapse_time)
+                result, elapse = model(image_bytes)
+
+                # Extract text from OCR result
+                # result format: [[bbox, text, confidence], ...]
+                if result:
+                    for item in result:
+                        # RapidOCR returns: [bbox, text, confidence]
+                        bbox, text, confidence = item[0], item[1], item[2]
+
+                        # Only include text with reasonable confidence
+                        if confidence > 0.5 and text:
+                            all_ocr_text.append(text)
+
+            except Exception as e:
+                print(f"⚠️  Error processing image {image_name}: {e}")
+                continue
+
+    # Combine all OCR text with spaces
+    ocr_text = " ".join(all_ocr_text)
+
+    # Store OCR text in database
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE video_data
+        SET ocr = ?,
+            ocr_status = 1
+        WHERE id = ?
+    """, (ocr_text, video_id))
+
+    conn.commit()
+    conn.close()
+
+    return ocr_text
 
 
 def cleanup_error_flags():

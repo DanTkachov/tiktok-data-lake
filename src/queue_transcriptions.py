@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
 """
 Helper script to queue transcription tasks.
 
 Usage:
-    python queue_transcriptions.py
+    python queue_transcriptions.p
 """
 
 from src.tasks import queue_transcriptions

@@ -12,6 +12,7 @@ app.conf.task_routes = {
 # Global state to hold the persistent loop and API session
 GLOBAL_LOOP = None
 GLOBAL_TIKTOK_API = None
+GLOBAL_OCR_MODEL = None
 
 
 def get_or_create_context():
@@ -40,6 +41,24 @@ def get_or_create_context():
         print(f"✅ TikTok API session ready! Object: {GLOBAL_TIKTOK_API}")
 
     return GLOBAL_LOOP, GLOBAL_TIKTOK_API
+
+
+def get_or_create_ocr_model():
+    """
+    Ensures a single RapidOCR model exists for this worker process.
+    Returns: ocr_model
+    """
+    global GLOBAL_OCR_MODEL
+
+    if GLOBAL_OCR_MODEL is None:
+        print("🔍 Initializing global RapidOCR model...")
+        from rapidocr_onnxruntime import RapidOCR
+
+        # Initialize RapidOCR (uses ONNX runtime, much more stable than PaddleOCR)
+        GLOBAL_OCR_MODEL = RapidOCR()
+        print(f"✅ RapidOCR model ready! Object: {GLOBAL_OCR_MODEL}")
+
+    return GLOBAL_OCR_MODEL
 
 
 @app.task
@@ -138,7 +157,118 @@ def transcribe_task(video_id):
         return {"status": "error", "message": str(e)}
 
 @app.task(queue="ocr")
-def ocr_images(video_id):
+def ocr_images_task(video_id):
+    """
+    OCR processing for image posts from the database.
+
+    Args:
+        video_id: ID of the image post to OCR
+
+    Returns:
+        dict with status and message
+    """
+    from src.db import get_connection, ocr_images
+
+    print(f"🔍 Starting OCR for video ID: {video_id}")
+
+    # Get the persistent OCR model
+    ocr_model = get_or_create_ocr_model()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Check if already OCR'd (idempotency)
+        cursor.execute("SELECT ocr_status, content_type FROM video_data WHERE id = ?", (video_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            conn.close()
+            return {"status": "error", "message": f"Video {video_id} not found in database"}
+
+        ocr_status, content_type = result
+
+        if ocr_status == 1:
+            conn.close()
+            print(f"⏭️  Already OCR'd: {video_id}")
+            return {"status": "skipped", "message": "Already OCR'd"}
+
+        # Skip non-image content (videos don't need OCR)
+        if content_type != "images":
+            conn.close()
+            print(f"⏭️  Skipping non-image content: {video_id} (type: {content_type})")
+            return {"status": "skipped", "message": f"Content type is {content_type}, not images"}
+
+        # Get image ZIP BLOB from database
+        cursor.execute("SELECT video_blob FROM videos WHERE id = ?", (video_id,))
+        blob_result = cursor.fetchone()
+
+        if not blob_result:
+            conn.close()
+            return {"status": "error", "message": f"Image BLOB not found for {video_id}"}
+
+        zip_bytes = blob_result[0]
+        conn.close()
+
+        # OCR the images using the persistent model (this function updates the database internally)
+        ocr_text = ocr_images(video_id, zip_bytes, ocr_model=ocr_model)
+
+        print(f"✅ OCR complete for {video_id}: {len(ocr_text)} characters")
+        return {"status": "success", "video_id": video_id, "ocr_text_length": len(ocr_text)}
+
+    except Exception as e:
+        conn.close()
+        print(f"❌ OCR failed for {video_id}: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+def queue_ocr():
+    """
+    Queries the database for all un-OCR'd image posts and queues them to Redis.
+    This is a coordinator function - run it manually or on a schedule.
+
+    Returns:
+        dict with statistics about queued image posts
+    """
+    from src.db import get_connection
+
+    print("\n" + "=" * 60)
+    print("QUEUEING OCR TASKS")
+    print("=" * 60)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get all image posts that are downloaded but not OCR'd
+    cursor.execute("""
+        SELECT id FROM video_data
+        WHERE download_status = 1
+          AND ocr_status = 0
+          AND content_type = 'images'
+        ORDER BY date_favorited DESC
+    """)
+
+    video_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    if not video_ids:
+        print("No image posts found needing OCR")
+        print("=" * 60 + "\n")
+        return {"total": 0, "queued": 0}
+
+    print(f"Found {len(video_ids)} image posts needing OCR")
+    print(f"Queueing tasks to Redis...")
+
+    # Queue all image posts to Redis
+    queued_count = 0
+    for video_id in video_ids:
+        ocr_images_task.delay(video_id)
+        queued_count += 1
+
+    print(f"✅ Successfully queued {queued_count} OCR tasks")
+    print("=" * 60 + "\n")
+
+    return {"total": len(video_ids), "queued": queued_count}
 
 
 

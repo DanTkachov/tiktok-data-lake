@@ -25,6 +25,11 @@ celery -A src.tasks worker --queues=downloads --concurrency=1 -n tiktok_download
 celery -A src.tasks worker --queues=transcription --concurrency=4 -n tiktok_transcription_worker --loglevel=info
 ```
 
+#### OCR Queue
+```bash
+celery -A src.tasks worker --queues=ocr --concurrency=4 -n tiktok_ocr_worker --loglevel=info
+```
+
 ### 3. Queue Transcriptions
 After videos are downloaded, queue them for transcription:
 ```bash
