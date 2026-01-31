@@ -30,6 +30,11 @@ celery -A src.tasks worker --queues=transcription --concurrency=4 -n tiktok_tran
 celery -A src.tasks worker --queues=ocr --concurrency=4 -n tiktok_ocr_worker --loglevel=info
 ```
 
+#### Starting the Web Server                                                                                                                                                                                                                                                                                      
+To browse your TikTok archive in the browser:    
+```bash
+ cd src/frontend && python start_server.py && cd ../..                                                                                                                                                                                                                                                        
+```
 ### 3. Queue Transcriptions
 After videos are downloaded, queue them for transcription:
 ```bash

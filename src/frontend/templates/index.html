@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Data Lake</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>TikTok Data Lake</h1>
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    id="search-input" 
+                    placeholder="Search transcriptions and OCR..." 
+                    autocomplete="off"
+                >
+                <button id="search-btn">Search</button>
+            </div>
+        </header>
+
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <span class="total-count" id="stat-total-text">- total</span>
+            <span class="stat-inline"><span class="icon">⬇️</span> <span id="stat-downloaded">-</span> downloaded</span>
+            <span class="stat-inline"><span class="icon">🎤</span> <span id="stat-transcribed">-</span> transcribed</span>
+            <span class="stat-inline"><span class="icon">👁️</span> <span id="stat-ocr">-</span> ocr'd</span>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-section">
+            <!-- Download Mode (Mutually Exclusive) -->
+            <div class="filter-row">
+                <span class="filter-category">View:</span>
+                <label class="filter-radio-label">
+                    <input type="radio" name="download-mode" id="mode-downloaded" value="downloaded" checked>
+                    <span>Downloaded Posts</span>
+                </label>
+                <label class="filter-radio-label">
+                    <input type="radio" name="download-mode" id="mode-not-downloaded" value="not_downloaded">
+                    <span>Not Downloaded</span>
+                </label>
+            </div>
+            
+            <!-- Type Filters (Checkboxes with Select All/Deselect All) -->
+            <div class="filter-row" id="type-filter-row">
+                <span class="filter-category">Type:</span>
+                <label class="filter-label">
+                    <input type="checkbox" id="filter-videos" checked>
+                    <span>Videos</span>
+                </label>
+                <label class="filter-label">
+                    <input type="checkbox" id="filter-images" checked>
+                    <span>Image Posts</span>
+                </label>
+                <div class="filter-actions">
+                    <button class="filter-action-btn" id="type-select-all">All</button>
+                    <button class="filter-action-btn" id="type-deselect-all">None</button>
+                </div>
+            </div>
+            
+            <!-- Transcription Status (Mutually Exclusive) -->
+            <div class="filter-row filter-group" id="transcription-filter-row">
+                <span class="filter-category">Transcription:</span>
+                <label class="filter-radio-label">
+                    <input type="radio" name="transcription-status" id="filter-transcribed" value="transcribed" checked>
+                    <span>Transcribed</span>
+                </label>
+                <label class="filter-radio-label">
+                    <input type="radio" name="transcription-status" id="filter-not-transcribed" value="not_transcribed">
+                    <span>Not Transcribed</span>
+                </label>
+                <span class="filter-divider">|</span>
+                <label class="filter-radio-label">
+                    <input type="radio" name="transcription-status" id="filter-transcription-all" value="all">
+                    <span>Both</span>
+                </label>
+            </div>
+            
+            <!-- OCR Status (Mutually Exclusive) -->
+            <div class="filter-row filter-group" id="ocr-filter-row">
+                <span class="filter-category">OCR:</span>
+                <label class="filter-radio-label">
+                    <input type="radio" name="ocr-status" id="filter-ocr" value="ocr" checked>
+                    <span>OCR'd</span>
+                </label>
+                <label class="filter-radio-label">
+                    <input type="radio" name="ocr-status" id="filter-not-ocr" value="not_ocr">
+                    <span>Not OCR'd</span>
+                </label>
+                <span class="filter-divider">|</span>
+                <label class="filter-radio-label">
+                    <input type="radio" name="ocr-status" id="filter-ocr-all" value="all">
+                    <span>Both</span>
+                </label>
+            </div>
+        </div>
+
+        <main>
+            <div id="video-grid" class="video-grid">
+                <!-- Videos will be loaded here -->
+            </div>
+            
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Loading videos...</p>
+            </div>
+
+            <div id="no-results" class="no-results hidden">
+                <p>No videos found.</p>
+            </div>
+
+            <div id="pagination" class="pagination hidden">
+                <button id="prev-btn" class="pagination-btn" disabled>Previous</button>
+                <span id="page-info"></span>
+                <button id="next-btn" class="pagination-btn" disabled>Next</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Video Modal -->
+    <div id="video-modal" class="modal hidden">
+        <div class="modal-content">
+            <button id="modal-close" class="modal-close">&times;</button>
+            <div class="modal-body">
+                <div id="video-container" class="video-container">
+                    <video id="video-player" controls autoplay loop>
+                        <source id="video-source" src="" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div id="image-container" class="image-container hidden">
+                    <p>Image posts are downloaded as ZIP files. Check the download below.</p>
+                </div>
+                <div class="video-info">
+                    <h2 id="modal-title"></h2>
+                    <p id="modal-creator"></p>
+                    <p id="modal-date"></p>
+                    <p id="modal-description"></p>
+                    <a id="modal-tiktok-link" href="#" target="_blank" class="tiktok-link">View on TikTok</a>
+                    <div id="transcription-section" class="transcription-section hidden">
+                        <h3>Transcription</h3>
+                        <p id="modal-transcription"></p>
+                    </div>
+                    <div id="ocr-section" class="ocr-section hidden">
+                        <h3>OCR Text</h3>
+                        <p id="modal-ocr"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

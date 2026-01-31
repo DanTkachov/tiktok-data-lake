@@ -12,6 +12,9 @@ import requests
 from TikTokApi import TikTokApi
 from faster_whisper import WhisperModel
 import asyncio
+import cv2
+import numpy as np
+from PIL import Image
 
 
 db_path_real = Path(__file__).parent.parent / "db" / "tiktok_archive_real.db"
@@ -75,6 +78,7 @@ def init_database():
            CREATE TABLE IF NOT EXISTS videos (
              id TEXT PRIMARY KEY,
              video_blob BLOB NOT NULL,
+             thumbnail_blob BLOB,
              date_downloaded INTEGER,
              FOREIGN KEY (id) REFERENCES video_data(id)
            )
@@ -113,6 +117,106 @@ def get_connection():
     # Set busy timeout for this connection (WAL mode is persistent once set)
     conn.execute("PRAGMA busy_timeout=5000;")
     return conn
+
+
+def extract_video_thumbnail(video_bytes, target_width=320):
+    """
+    Extract the first frame from a video and return it as a JPEG thumbnail.
+
+    Args:
+        video_bytes: bytes object containing the video data
+        target_width: desired width for the thumbnail (height scaled proportionally)
+
+    Returns:
+        bytes: JPEG-encoded thumbnail image
+    """
+    # Write video bytes to temporary file
+    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
+        temp_file.write(video_bytes)
+        temp_path = temp_file.name
+
+    try:
+        # Open video with opencv
+        cap = cv2.VideoCapture(temp_path)
+
+        # Read first frame
+        ret, frame = cap.read()
+        cap.release()
+
+        if not ret or frame is None:
+            raise ValueError("Could not read first frame from video")
+
+        # Calculate new dimensions maintaining aspect ratio
+        height, width = frame.shape[:2]
+        aspect_ratio = height / width
+        target_height = int(target_width * aspect_ratio)
+
+        # Resize frame
+        resized = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+
+        # Convert BGR to RGB (opencv uses BGR)
+        rgb_frame = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+
+        # Convert to PIL Image
+        pil_image = Image.fromarray(rgb_frame)
+
+        # Encode as JPEG with quality 85
+        output = BytesIO()
+        pil_image.save(output, format='JPEG', quality=85, optimize=True)
+        thumbnail_bytes = output.getvalue()
+
+        return thumbnail_bytes
+
+    finally:
+        # Clean up temp file
+        os.unlink(temp_path)
+
+
+def extract_image_thumbnail(zip_bytes, target_width=320):
+    """
+    Extract the first image from a ZIP archive and return it as a JPEG thumbnail.
+
+    Args:
+        zip_bytes: bytes object containing the ZIP archive
+        target_width: desired width for the thumbnail (height scaled proportionally)
+
+    Returns:
+        bytes: JPEG-encoded thumbnail image
+    """
+    with zipfile.ZipFile(BytesIO(zip_bytes), 'r') as zip_file:
+        # Get sorted list of image files
+        image_files = sorted([
+            name for name in zip_file.namelist()
+            if name.lower().endswith(('.jpg', '.jpeg', '.png'))
+        ])
+
+        if not image_files:
+            raise ValueError("No image files found in ZIP")
+
+        # Read first image
+        first_image_bytes = zip_file.read(image_files[0])
+
+        # Open with PIL
+        pil_image = Image.open(BytesIO(first_image_bytes))
+
+        # Convert to RGB if needed (handles RGBA, grayscale, etc.)
+        if pil_image.mode != 'RGB':
+            pil_image = pil_image.convert('RGB')
+
+        # Calculate new dimensions maintaining aspect ratio
+        width, height = pil_image.size
+        aspect_ratio = height / width
+        target_height = int(target_width * aspect_ratio)
+
+        # Resize image
+        pil_image = pil_image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+
+        # Encode as JPEG with quality 85
+        output = BytesIO()
+        pil_image.save(output, format='JPEG', quality=85, optimize=True)
+        thumbnail_bytes = output.getvalue()
+
+        return thumbnail_bytes
 
 
 def ingest_json(json_file):
@@ -288,6 +392,13 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             video_bytes = await video.bytes()
             download_timestamp = int(time.time())
 
+            # Generate thumbnail from first frame
+            try:
+                thumbnail_bytes = extract_video_thumbnail(video_bytes)
+            except Exception as thumb_error:
+                print(f"⚠️  Warning: Could not generate thumbnail for {video_id}: {thumb_error}")
+                thumbnail_bytes = None
+
             # Immediately transcribe video
             # Actually don't, so that redis can use it.
             # _ = transcribe_video(video_id, video_bytes, whisper_model)
@@ -304,9 +415,9 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
 
             # Insert video BLOB into videos table
             cursor.execute("""
-                INSERT INTO videos (id, video_blob, date_downloaded)
-                VALUES (?, ?, ?)
-            """, (video_id, video_bytes, download_timestamp))
+                INSERT INTO videos (id, video_blob, date_downloaded, thumbnail_blob)
+                VALUES (?, ?, ?, ?)
+            """, (video_id, video_bytes, download_timestamp, thumbnail_bytes))
 
             conn.commit()
 
@@ -423,6 +534,13 @@ async def alt_video_download(video_id, tiktok_api, whisper_model):
 
         download_timestamp = int(time.time())
 
+        # Generate thumbnail from first frame
+        try:
+            thumbnail_bytes = extract_video_thumbnail(video_bytes)
+        except Exception as thumb_error:
+            print(f"⚠️  Warning: Could not generate thumbnail for {video_id}: {thumb_error}")
+            thumbnail_bytes = None
+
         # Transcribe video
         _ = transcribe_video(video_id, video_bytes, whisper_model)
 
@@ -438,9 +556,9 @@ async def alt_video_download(video_id, tiktok_api, whisper_model):
 
         # Insert video BLOB into videos table
         cursor.execute("""
-            INSERT INTO videos (id, video_blob, date_downloaded)
-            VALUES (?, ?, ?)
-        """, (video_id, video_bytes, download_timestamp))
+            INSERT INTO videos (id, video_blob, date_downloaded, thumbnail_blob)
+            VALUES (?, ?, ?, ?)
+        """, (video_id, video_bytes, download_timestamp, thumbnail_bytes))
 
         conn.commit()
         conn.close()
@@ -556,11 +674,11 @@ async def download_image_post(video_ids, tiktok_api=None):
             """, (title, uploader, uploader_id, desc, create_time,
                   "images", video_id))
 
-            # Insert ZIP BLOB into videos table
+            # Insert ZIP BLOB into videos table (no thumbnail for image posts)
             cursor.execute("""
-                INSERT INTO videos (id, video_blob, date_downloaded)
-                VALUES (?, ?, ?)
-            """, (video_id, zip_blob, download_timestamp))
+                INSERT INTO videos (id, video_blob, date_downloaded, thumbnail_blob)
+                VALUES (?, ?, ?, ?)
+            """, (video_id, zip_blob, download_timestamp, None))
 
             conn.commit()
             conn.close()
