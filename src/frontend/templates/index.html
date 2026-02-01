@@ -180,8 +180,14 @@
                     <p id="modal-creator"></p>
                     <p id="modal-date"></p>
                     <div id="modal-tags-section" class="modal-tags-section">
-                        <h4>Tags</h4>
+                        <div class="modal-tags-header">
+                            <h4>Tags</h4>
+                            <button class="modal-add-tag-btn" id="modal-add-tag-btn">+</button>
+                        </div>
                         <div id="modal-tags-list"></div>
+                        <div id="modal-tag-input-container" class="modal-tag-input-container hidden">
+                            <input type="text" id="modal-tag-input" class="modal-tag-input" placeholder="Add tags (comma separated)">
+                        </div>
                     </div>
                     <p id="modal-description"></p>
                     <a id="modal-tiktok-link" href="#" target="_blank" class="tiktok-link">View on TikTok</a>

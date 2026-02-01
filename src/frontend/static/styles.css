@@ -883,3 +883,63 @@ header h1 {
     font-weight: 500;
     backdrop-filter: blur(5px);
 }
+
+/* Modal Tags Header with Plus Button */
+.modal-tags-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.modal-tags-header h4 {
+    margin: 0;
+}
+
+.modal-add-tag-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(92, 122, 156, 0.6);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(92, 122, 156, 0.8);
+}
+
+.modal-add-tag-btn:hover {
+    background: rgba(92, 122, 156, 0.9);
+    transform: scale(1.1);
+}
+
+/* Modal Tag Input */
+.modal-tag-input-container {
+    margin-top: 8px;
+}
+
+.modal-tag-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid rgba(92, 122, 156, 0.5);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #ffffff;
+    font-size: 13px;
+    backdrop-filter: blur(5px);
+}
+
+.modal-tag-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.modal-tag-input:focus {
+    outline: none;
+    border-color: #5c7a9c;
+    box-shadow: 0 0 10px rgba(92, 122, 156, 0.3);
+}

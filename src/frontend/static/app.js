@@ -74,6 +74,9 @@ const ocrSection = document.getElementById('ocr-section');
 const modalOcr = document.getElementById('modal-ocr');
 const modalTagsSection = document.getElementById('modal-tags-section');
 const modalTagsList = document.getElementById('modal-tags-list');
+const modalAddTagBtn = document.getElementById('modal-add-tag-btn');
+const modalTagInputContainer = document.getElementById('modal-tag-input-container');
+const modalTagInput = document.getElementById('modal-tag-input');
 
 // Initialize
 async function init() {
@@ -786,6 +789,41 @@ async function openVideoModal(videoId) {
         
         // Add keyboard listener
         document.addEventListener('keydown', handleCarouselKeydown);
+        
+        // Setup tag input handlers
+        if (modalAddTagBtn && modalTagInputContainer && modalTagInput) {
+            // Show input when add tag button is clicked
+            modalAddTagBtn.onclick = () => {
+                modalAddTagBtn.classList.add('hidden');
+                modalTagInputContainer.classList.remove('hidden');
+                modalTagInput.focus();
+            };
+            
+            // Handle tag submission
+            const handleTagSubmit = async () => {
+                const value = modalTagInput.value.trim();
+                if (value) {
+                    const tags = value.split(',').map(t => t.trim()).filter(t => t);
+                    for (const tag of tags) {
+                        await addTagToVideo(videoId, tag);
+                    }
+                    await loadVideoTags(videoId);
+                    await loadAllTags();
+                }
+                modalTagInput.value = '';
+                modalTagInputContainer.classList.add('hidden');
+                modalAddTagBtn.classList.remove('hidden');
+            };
+            
+            modalTagInput.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleTagSubmit();
+                }
+            };
+            
+            modalTagInput.onblur = handleTagSubmit;
+        }
         
     } catch (error) {
         console.error('Error opening video:', error);
