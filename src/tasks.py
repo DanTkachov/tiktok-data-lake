@@ -319,3 +319,51 @@ def queue_transcriptions():
     print("=" * 60 + "\n")
 
     return {"total": len(video_ids), "queued": queued_count}
+
+
+
+def queue_downloads():
+    """
+    Queries the database for all non-downloaded videos and queues them to Redis.
+    This is a coordinator function - run it manually or on a schedule.
+
+    Returns:
+        dict with statistics about queued videos
+    """
+    from src.db import get_connection
+
+    print("\n" + "=" * 60)
+    print("QUEUEING DOWNLOAD TASKS")
+    print("=" * 60)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get all videos that are not downloaded yet
+    cursor.execute("""
+        SELECT id FROM video_data
+        WHERE download_status = 0
+        ORDER BY date_favorited DESC
+    """)
+
+    video_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    if not video_ids:
+        print("No videos found needing download")
+        print("=" * 60 + "\n")
+        return {"total": 0, "queued": 0}
+
+    print(f"Found {len(video_ids)} videos needing download")
+    print(f"Queueing tasks to Redis...")
+
+    # Queue all videos to Redis
+    queued_count = 0
+    for video_id in video_ids:
+        download_task.delay(video_id)
+        queued_count += 1
+
+    print(f"✅ Successfully queued {queued_count} download tasks")
+    print("=" * 60 + "\n")
+
+    return {"total": len(video_ids), "queued": queued_count}

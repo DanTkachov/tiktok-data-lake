@@ -16,6 +16,9 @@
                 <button id="btn-ingest-json" class="admin-btn admin-btn-primary" title="Ingest TikTok JSON file">
                     Ingest JSON
                 </button>
+                <button id="btn-queue-downloads" class="admin-btn admin-btn-primary" title="Download all non-downloaded videos">
+                    Download All Videos
+                </button>
                 <button id="btn-queue-transcriptions" class="admin-btn admin-btn-secondary" title="Queue videos for transcription">
                     Queue Transcriptions
                 </button>
@@ -172,6 +175,44 @@
                     <button id="next-btn" class="pagination-btn" disabled>Next</button>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Ingest JSON Modal -->
+    <div id="ingest-modal" class="modal hidden">
+        <div class="modal-content ingest-modal-content">
+            <button id="ingest-modal-close" class="modal-close">&times;</button>
+            <div class="modal-body ingest-modal-body">
+                <h2>Ingest TikTok JSON</h2>
+                <p class="ingest-subtitle">Upload your TikTok favorites JSON file to add it to the database</p>
+                
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <svg class="drop-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p class="drop-zone-text">Drag & drop your JSON file here</p>
+                        <p class="drop-zone-or">or</p>
+                        <button id="browse-btn" class="browse-btn">Browse Files</button>
+                    </div>
+                    <input type="file" id="file-input" accept=".json" class="file-input">
+                </div>
+                
+                <div id="file-selected" class="file-selected hidden">
+                    <div class="file-info">
+                        <span class="file-icon">📄</span>
+                        <span id="selected-filename" class="filename"></span>
+                    </div>
+                    <button id="ingest-submit" class="ingest-submit-btn">Ingest File</button>
+                </div>
+                
+                <div id="ingest-progress" class="ingest-progress hidden">
+                    <div class="spinner"></div>
+                    <p>Ingesting JSON file...</p>
+                </div>
+            </div>
         </div>
     </div>
 

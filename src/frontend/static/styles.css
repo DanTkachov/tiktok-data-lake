@@ -1054,3 +1054,150 @@ header h1 {
     border-color: #5c7a9c;
     box-shadow: 0 0 10px rgba(92, 122, 156, 0.3);
 }
+/* Ingest JSON Modal */
+.ingest-modal-content {
+    max-width: 500px;
+    margin: 10% auto;
+}
+
+.ingest-modal-body {
+    padding: 30px;
+    text-align: center;
+}
+
+.ingest-modal-body h2 {
+    margin-bottom: 10px;
+    color: #ffffff;
+    font-size: 1.8rem;
+}
+
+.ingest-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 25px;
+    font-size: 14px;
+}
+
+.drop-zone {
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 40px 30px;
+    background: rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: #5c7a9c;
+    background: rgba(92, 122, 156, 0.1);
+    box-shadow: 0 0 20px rgba(92, 122, 156, 0.2);
+}
+
+.drop-zone-content {
+    pointer-events: none;
+}
+
+.drop-zone-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 15px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.drop-zone-text {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.drop-zone-or {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.browse-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #5c7a9c 0%, #7a9ab8 100%);
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    pointer-events: auto;
+}
+
+.browse-btn:hover {
+    background: linear-gradient(135deg, #4a6a8c 0%, #6a8aa8 100%);
+    transform: translateY(-1px);
+}
+
+.file-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.file-selected {
+    margin-top: 25px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    text-align: left;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.file-icon {
+    font-size: 20px;
+}
+
+.ingest-submit-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #4a7c59 0%, #5d9c6d 100%);
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ingest-submit-btn:hover {
+    background: linear-gradient(135deg, #3d6a4a 0%, #4a8c5a 100%);
+    transform: translateY(-1px);
+}
+
+.ingest-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ingest-progress {
+    margin-top: 25px;
+    padding: 30px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+.ingest-progress p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 15px;
+}

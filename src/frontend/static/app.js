@@ -1045,11 +1045,16 @@ function escapeHtml(text) {
 // Admin Actions
 function setupAdminButtons() {
     const btnIngestJson = document.getElementById('btn-ingest-json');
+    const btnQueueDownloads = document.getElementById('btn-queue-downloads');
     const btnQueueTranscriptions = document.getElementById('btn-queue-transcriptions');
     const btnQueueOcr = document.getElementById('btn-queue-ocr');
     
     if (btnIngestJson) {
-        btnIngestJson.addEventListener('click', handleIngestJson);
+        btnIngestJson.addEventListener('click', openIngestModal);
+    }
+    
+    if (btnQueueDownloads) {
+        btnQueueDownloads.addEventListener('click', handleQueueDownloads);
     }
     
     if (btnQueueTranscriptions) {
@@ -1061,49 +1066,160 @@ function setupAdminButtons() {
     }
 }
 
-async function handleIngestJson() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.onchange = async () => {
-        const file = input.files[0];
-        if (!file) return;
-        
-        const btn = document.getElementById('btn-ingest-json');
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Ingesting...';
-        
-        try {
-            const formData = new FormData();
-            formData.append('json_file', file);
-            
-            const response = await fetch('/api/admin/ingest-json', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok) {
-                alert('JSON file ingested successfully!\n\nResult: ' + JSON.stringify(result.result, null, 2));
-                // Reload page to show new data
-                location.reload();
-            } else {
-                alert('Error: ' + result.detail);
-            }
-        } catch (error) {
-            console.error('Error ingesting JSON:', error);
-            alert('Failed to ingest JSON file: ' + error.message);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = originalText;
-        }
-    };
-    
-    input.click();
+// Ingest Modal Variables
+let selectedFile = null;
+const ingestModal = document.getElementById('ingest-modal');
+const ingestModalClose = document.getElementById('ingest-modal-close');
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const browseBtn = document.getElementById('browse-btn');
+const fileSelected = document.getElementById('file-selected');
+const selectedFilename = document.getElementById('selected-filename');
+const ingestSubmit = document.getElementById('ingest-submit');
+const ingestProgress = document.getElementById('ingest-progress');
+
+function openIngestModal() {
+    selectedFile = null;
+    resetIngestModal();
+    ingestModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 }
+
+function closeIngestModal() {
+    ingestModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    selectedFile = null;
+}
+
+function resetIngestModal() {
+    dropZone.classList.remove('hidden');
+    fileSelected.classList.add('hidden');
+    ingestProgress.classList.add('hidden');
+    fileInput.value = '';
+}
+
+function handleFileSelect(file) {
+    if (!file || file.type !== 'application/json' && !file.name.endsWith('.json')) {
+        alert('Please select a valid JSON file');
+        return;
+    }
+    
+    selectedFile = file;
+    selectedFilename.textContent = file.name;
+    dropZone.classList.add('hidden');
+    fileSelected.classList.remove('hidden');
+}
+
+// Setup ingest modal event listeners
+function setupIngestModal() {
+    if (!ingestModal) return;
+    
+    // Close button
+    if (ingestModalClose) {
+        ingestModalClose.addEventListener('click', closeIngestModal);
+    }
+    
+    // Click outside to close
+    ingestModal.addEventListener('click', (e) => {
+        if (e.target === ingestModal) {
+            closeIngestModal();
+        }
+    });
+    
+    // Escape key to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !ingestModal.classList.contains('hidden')) {
+            closeIngestModal();
+        }
+    });
+    
+    // Drop zone click triggers file input
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', (e) => {
+            if (e.target !== browseBtn) {
+                fileInput.click();
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        // Drag and drop events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+    }
+    
+    // Browse button
+    if (browseBtn && fileInput) {
+        browseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.click();
+        });
+    }
+    
+    // Submit button
+    if (ingestSubmit) {
+        ingestSubmit.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            ingestSubmit.disabled = true;
+            fileSelected.classList.add('hidden');
+            ingestProgress.classList.remove('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('json_file', selectedFile);
+                
+                const response = await fetch('/api/admin/ingest-json', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('JSON file ingested successfully!\n\nResult: ' + JSON.stringify(result.result, null, 2));
+                    closeIngestModal();
+                    // Reload page to show new data
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.detail);
+                    resetIngestModal();
+                    ingestSubmit.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error ingesting JSON:', error);
+                alert('Failed to ingest JSON file: ' + error.message);
+                resetIngestModal();
+                ingestSubmit.disabled = false;
+            }
+        });
+    }
+}
+
+// Initialize ingest modal on page load
+document.addEventListener('DOMContentLoaded', setupIngestModal);
 
 async function handleQueueTranscriptions() {
     const btn = document.getElementById('btn-queue-transcriptions');
@@ -1153,6 +1269,33 @@ async function handleQueueOcr() {
     } catch (error) {
         console.error('Error queueing OCR:', error);
         alert('Failed to queue OCR: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+async function handleQueueDownloads() {
+    const btn = document.getElementById('btn-queue-downloads');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Queueing...';
+    
+    try {
+        const response = await fetch('/api/admin/queue-downloads', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(result.message);
+        } else {
+            alert('Error: ' + result.detail);
+        }
+    } catch (error) {
+        console.error('Error queueing downloads:', error);
+        alert('Failed to queue downloads: ' + error.message);
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;

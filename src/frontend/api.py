@@ -24,7 +24,7 @@ from db import get_connection, DB_PATH, init_database
 
 # Fix import path for tasks module
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-import tasks as tasks_module
+import src.tasks as tasks_module
 
 app = FastAPI(
     title="TikTok Data Lake",
@@ -1025,6 +1025,27 @@ async def admin_queue_ocr():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to queue OCR: {str(e)}")
+
+
+@app.post("/api/admin/queue-downloads")
+async def admin_queue_downloads():
+    """
+    Queue download tasks for all non-downloaded videos in the database.
+
+    Returns:
+        Number of videos queued for download
+    """
+    try:
+        count = tasks_module.queue_downloads()
+        return {
+            "status": "success",
+            "message": f"Queued {count} videos for download",
+            "count": count,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to queue downloads: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
