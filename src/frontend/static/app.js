@@ -12,6 +12,8 @@ let contentFilter = 'all'; // 'all', 'video', 'images', or 'none'
 let downloadFilter = 'downloaded'; // 'downloaded' or 'not_downloaded'
 let transcriptionFilter = 'all'; // 'all', 'transcribed', 'not_transcribed', 'both', or 'none'
 let ocrFilter = 'all'; // 'all', 'ocr', 'not_ocr', 'both', or 'none'
+let selectedTags = []; // Array of selected tag names for filtering (AND logic)
+let allTags = []; // Cache of all available tags
 let searchDebounceTimer = null; // For debouncing live search
 
 // DOM Elements
@@ -26,7 +28,7 @@ const nextBtn = document.getElementById('next-btn');
 const pageInfo = document.getElementById('page-info');
 
 // Stats elements
-const statTotalText = document.getElementById('stat-total-text');
+const statTotal = document.getElementById('stat-total');
 const statDownloaded = document.getElementById('stat-downloaded');
 const statTranscribed = document.getElementById('stat-transcribed');
 const statOcr = document.getElementById('stat-ocr');
@@ -42,11 +44,17 @@ const filterTranscriptionAll = document.getElementById('filter-transcription-all
 const filterOcr = document.getElementById('filter-ocr');
 const filterNotOcr = document.getElementById('filter-not-ocr');
 const filterOcrAll = document.getElementById('filter-ocr-all');
-const typeFilterRow = document.getElementById('type-filter-row');
-const transcriptionFilterRow = document.getElementById('transcription-filter-row');
-const ocrFilterRow = document.getElementById('ocr-filter-row');
+const typeFilterRow = document.getElementById('type-filter-block');
+const transcriptionFilterRow = document.getElementById('transcription-filter-block');
+const ocrFilterRow = document.getElementById('ocr-filter-block');
 const typeSelectAllBtn = document.getElementById('type-select-all');
 const typeDeselectAllBtn = document.getElementById('type-deselect-all');
+
+// Tags elements
+const userTagsList = document.getElementById('user-tags-list');
+const tagsActions = document.getElementById('tags-actions');
+const tagsSelectAllBtn = document.getElementById('tags-select-all');
+const tagsClearBtn = document.getElementById('tags-clear');
 
 // Modal elements
 const modal = document.getElementById('video-modal');
@@ -64,14 +72,16 @@ const transcriptionSection = document.getElementById('transcription-section');
 const modalTranscription = document.getElementById('modal-transcription');
 const ocrSection = document.getElementById('ocr-section');
 const modalOcr = document.getElementById('modal-ocr');
+const modalTagsSection = document.getElementById('modal-tags-section');
+const modalTagsList = document.getElementById('modal-tags-list');
 
 // Initialize
 async function init() {
-    // Initialize filter availability based on default mode
-    updateFilterAvailability();
-    
     // Load stats
     await loadStats();
+    
+    // Load all tags
+    await loadAllTags();
     
     // Load initial videos
     await loadVideos();
@@ -200,6 +210,15 @@ async function init() {
         });
     }
     
+    // Tag filter buttons
+    if (tagsSelectAllBtn) {
+        tagsSelectAllBtn.addEventListener('click', selectAllTags);
+    }
+    
+    if (tagsClearBtn) {
+        tagsClearBtn.addEventListener('click', clearAllTags);
+    }
+    
     modalClose.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
@@ -221,13 +240,115 @@ async function loadStats() {
         
         const stats = await response.json();
         
-        if (statTotalText) statTotalText.textContent = formatNumber(stats.total) + ' total';
+        if (statTotal) statTotal.textContent = formatNumber(stats.total);
         if (statDownloaded) statDownloaded.textContent = formatNumber(stats.downloaded);
         if (statTranscribed) statTranscribed.textContent = formatNumber(stats.transcribed);
         if (statOcr) statOcr.textContent = formatNumber(stats.ocr);
     } catch (error) {
         console.error('Error loading stats:', error);
     }
+}
+
+// Load all tags from the database
+async function loadAllTags() {
+    if (!userTagsList) return;
+    
+    try {
+        const response = await fetch('/api/tags');
+        if (!response.ok) throw new Error('Failed to load tags');
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Combine manual and automatic tags, but prioritize manual
+            allTags = [
+                ...data.manual_tags.map(t => ({ ...t, type: 'manual' })),
+                ...data.automatic_tags.map(t => ({ ...t, type: 'auto' }))
+            ];
+            renderTagsList();
+        } else {
+            userTagsList.innerHTML = '<p class="no-tags-message">Error loading tags</p>';
+        }
+    } catch (error) {
+        console.error('Error loading tags:', error);
+        userTagsList.innerHTML = '<p class="no-tags-message">Failed to load tags</p>';
+    }
+}
+
+// Render the tags list in the sidebar
+function renderTagsList() {
+    if (!userTagsList) return;
+    
+    if (allTags.length === 0) {
+        userTagsList.innerHTML = '<p class="no-tags-message">No tags yet. Tag videos to see them here.</p>';
+        if (tagsActions) tagsActions.style.display = 'none';
+        return;
+    }
+    
+    // Only show manual tags for user filtering
+    const manualTags = allTags.filter(tag => tag.type === 'manual');
+    
+    if (manualTags.length === 0) {
+        userTagsList.innerHTML = '<p class="no-tags-message">No manual tags yet.</p>';
+        if (tagsActions) tagsActions.style.display = 'none';
+        return;
+    }
+    
+    // Render checkboxes for each tag
+    userTagsList.innerHTML = manualTags.map(tag => {
+        const isChecked = selectedTags.includes(tag.tag);
+        return `
+            <label class="tag-checkbox-label">
+                <input type="checkbox" class="tag-checkbox" data-tag="${escapeHtml(tag.tag)}" ${isChecked ? 'checked' : ''}>
+                <span>${escapeHtml(tag.tag)}</span>
+                <span class="tag-count">${tag.count}</span>
+            </label>
+        `;
+    }).join('');
+    
+    // Show the action buttons
+    if (tagsActions) tagsActions.style.display = 'flex';
+    
+    // Add event listeners to the new checkboxes
+    document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', handleTagSelection);
+    });
+}
+
+// Handle tag checkbox selection
+function handleTagSelection(event) {
+    const tag = event.target.dataset.tag;
+    
+    if (event.target.checked) {
+        // Add tag to selected tags
+        if (!selectedTags.includes(tag)) {
+            selectedTags.push(tag);
+        }
+    } else {
+        // Remove tag from selected tags
+        selectedTags = selectedTags.filter(t => t !== tag);
+    }
+    
+    // Reload videos with new tag filter
+    currentPage = 1;
+    loadVideos(1);
+}
+
+// Select all tags
+function selectAllTags() {
+    const manualTags = allTags.filter(tag => tag.type === 'manual');
+    selectedTags = manualTags.map(tag => tag.tag);
+    renderTagsList();
+    currentPage = 1;
+    loadVideos(1);
+}
+
+// Clear all tag selections
+function clearAllTags() {
+    selectedTags = [];
+    renderTagsList();
+    currentPage = 1;
+    loadVideos(1);
 }
 
 // Enable/disable filter rows based on download mode
@@ -340,6 +461,13 @@ async function loadVideos(page = 1) {
             if (ocrFilter && ocrFilter !== 'all') {
                 url += `&ocr_status=${ocrFilter}`;
             }
+            
+            // Add tag filters if any selected (AND logic - video must have ALL selected tags)
+            if (selectedTags.length > 0) {
+                selectedTags.forEach(tag => {
+                    url += `&tags=${encodeURIComponent(tag)}`;
+                });
+            }
         }
         
         // Handle 'none' content filter - show no results
@@ -413,10 +541,9 @@ function createVideoCard(video) {
     card.innerHTML = `
         <div class="video-thumbnail">
             ${thumbnailHtml}
-            ${isImagePost ? `<span class="image-badge">📸 ${video.image_count || '?'}</span>` : ''}
-            <div class="status-indicators">
-                ${video.has_transcription ? '<span class="status-badge transcription">T</span>' : ''}
-                ${video.has_ocr ? '<span class="status-badge ocr">O</span>' : ''}
+            <button class="add-tag-btn" data-video-id="${video.id}">+</button>
+            <div class="tag-input-container hidden">
+                <input type="text" class="tag-input" placeholder="Add tags (comma separated)" data-video-id="${video.id}">
             </div>
         </div>
         <div class="video-info-overlay">
@@ -429,7 +556,66 @@ function createVideoCard(video) {
         </div>
     `;
     
-    card.addEventListener('click', () => openVideoModal(video.id));
+    // Add click handler for the card to open modal
+    card.addEventListener('click', (e) => {
+        // Don't open modal if clicking on the add tag button or input
+        if (e.target.classList.contains('add-tag-btn') || 
+            e.target.classList.contains('tag-input') ||
+            e.target.closest('.tag-input-container')) {
+            return;
+        }
+        openVideoModal(video.id);
+    });
+    
+    // Add tag button handler
+    const addTagBtn = card.querySelector('.add-tag-btn');
+    const tagInputContainer = card.querySelector('.tag-input-container');
+    const tagInput = card.querySelector('.tag-input');
+    
+    addTagBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addTagBtn.classList.add('hidden');
+        tagInputContainer.classList.remove('hidden');
+        tagInput.focus();
+    });
+    
+    // Handle blur event (clicking away) to submit tags
+    tagInput.addEventListener('blur', async () => {
+        const tagsText = tagInput.value.trim();
+        
+        if (tagsText) {
+            // Split by comma and trim each tag
+            const tags = tagsText.split(',').map(tag => tag.trim()).filter(tag => tag);
+            
+            if (tags.length > 0) {
+                // Add each tag
+                let successCount = 0;
+                for (const tag of tags) {
+                    const result = await addTagToVideo(video.id, tag);
+                    if (result.status === 'success') {
+                        successCount++;
+                    }
+                }
+                
+                if (successCount > 0) {
+                    // Refresh the sidebar tags
+                    await loadAllTags();
+                }
+            }
+        }
+        
+        // Reset the input
+        tagInput.value = '';
+        tagInputContainer.classList.add('hidden');
+        addTagBtn.classList.remove('hidden');
+    });
+    
+    // Handle Enter key to submit immediately
+    tagInput.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter') {
+            tagInput.blur();
+        }
+    });
     
     return card;
 }
@@ -447,6 +633,58 @@ function updatePagination(pagination) {
         paginationEl.classList.remove('hidden');
     } else {
         paginationEl.classList.add('hidden');
+    }
+}
+
+// Add a tag to a video
+async function addTagToVideo(videoId, tag) {
+    try {
+        const response = await fetch(`/api/videos/${videoId}/tags?tag=${encodeURIComponent(tag)}`, {
+            method: 'POST',
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to add tag: ${response.statusText}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error adding tag:', error);
+        return { status: 'error', message: error.message };
+    }
+}
+
+// Load and display tags for a specific video in the modal
+async function loadVideoTags(videoId) {
+    if (!modalTagsList) return;
+    
+    try {
+        const response = await fetch(`/api/videos/${videoId}/tags`);
+        
+        if (!response.ok) {
+            throw new Error('Failed to load tags');
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            const allVideoTags = [...data.manual_tags, ...data.automatic_tags.map(t => t.tag)];
+            
+            if (allVideoTags.length === 0) {
+                // Show "None" in red box when no tags
+                modalTagsList.innerHTML = '<span class="no-tags-badge">None</span>';
+            } else {
+                // Display tags as badges
+                modalTagsList.innerHTML = allVideoTags.map(tag => 
+                    `<span class="video-tag-badge">${escapeHtml(tag)}</span>`
+                ).join('');
+            }
+        } else {
+            modalTagsList.innerHTML = '<span class="no-tags-badge">None</span>';
+        }
+    } catch (error) {
+        console.error('Error loading video tags:', error);
+        modalTagsList.innerHTML = '<span class="no-tags-badge">None</span>';
     }
 }
 

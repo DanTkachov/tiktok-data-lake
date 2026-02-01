@@ -85,20 +85,26 @@ def init_database():
            """)
 
         # tags: stores tags for videos (many-to-many relationship)
+        # Each row is one tag - can be either automatic (from ML) or manual (from user)
         cursor.execute("""
            CREATE TABLE IF NOT EXISTS tags (
              id INTEGER PRIMARY KEY AUTOINCREMENT,
              video_id TEXT NOT NULL,
-             tag TEXT NOT NULL,
+             automatic_tag TEXT,
+             manual_tag TEXT,
              confidence REAL,
-             FOREIGN KEY (video_id) REFERENCES video_data(id),
-             UNIQUE(video_id, tag)
+             date_added INTEGER,
+             FOREIGN KEY (video_id) REFERENCES video_data(id)
            )
            """)
 
         # Create index for efficient tag searching
         cursor.execute("""
-           CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag)
+           CREATE INDEX IF NOT EXISTS idx_tags_automatic_tag ON tags(automatic_tag)
+           """)
+
+        cursor.execute("""
+           CREATE INDEX IF NOT EXISTS idx_tags_manual_tag ON tags(manual_tag)
            """)
 
         cursor.execute("""
@@ -316,10 +322,152 @@ def ingest_json(json_file):
 #                 │                                               │
 #                 └─────────────► Transcribe video ───────────────┘
 
+async def download_video_without_watermark(video_info):
+    """
+    Downloads a TikTok video WITHOUT watermark using multiple fallback methods.
+
+    Priority order:
+    1. bitrateInfo PlayAddr URLs - highest quality, no watermark
+    2. playAddr field - standard quality, no watermark
+    3. hdplay field - HD quality, no watermark
+
+    Args:
+        video_info: Dictionary containing video metadata from TikTok API
+
+    Returns:
+        bytes: Video data without watermark
+
+    Raises:
+        Exception: If all download methods fail
+    """
+
+    # Debug: Log the structure of video_info to help diagnose issues
+    try:
+        video_data = video_info.get('video', {})
+        print(f"  🔍 DEBUG: video_info keys: {list(video_info.keys())}")
+        print(f"  🔍 DEBUG: video_data keys: {list(video_data.keys())}")
+    except Exception as debug_error:
+        print(f"  ⚠️  DEBUG: Could not inspect video_info structure: {debug_error}")
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Referer': 'https://www.tiktok.com/',
+        'Origin': 'https://www.tiktok.com',
+        'Connection': 'keep-alive',
+    }
+
+    # Method 1: Try bitrateInfo PlayAddr URLs (best quality)
+    try:
+        print(f"  🎯 Method 1: Trying bitrateInfo PlayAddr URLs...")
+        video_data = video_info.get('video', {})
+        bitrate_info = video_data.get('bitrateInfo', [])
+
+        if bitrate_info:
+            # Try each bitrate option (usually sorted by quality)
+            for idx, bitrate_option in enumerate(bitrate_info):
+                play_addr = bitrate_option.get('PlayAddr', {})
+                url_list = play_addr.get('UrlList', [])
+
+                print(f"    Trying bitrate option {idx + 1}/{len(bitrate_info)} with {len(url_list)} URLs...")
+
+                # Try all URLs in the list
+                for url_idx, url in enumerate(url_list):
+                    try:
+                        print(f"      Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}...")
+                        response = requests.get(url, headers=headers, timeout=30)
+
+                        if response.status_code == 200 and len(response.content) > 1000:
+                            print(f"  ✅ Success with bitrateInfo method! Size: {len(response.content)} bytes")
+                            return response.content
+                        else:
+                            print(f"      ⚠️  Bad response: status={response.status_code}, size={len(response.content)}")
+                            # Debug: Show response content for troubleshooting
+                            if len(response.content) < 2000:
+                                print(f"      🔍 Response content: {response.content[:500]}")
+                    except Exception as url_error:
+                        print(f"      ⚠️  URL failed: {str(url_error)[:100]}")
+                        continue
+    except Exception as e:
+        print(f"  ⚠️  bitrateInfo method failed: {str(e)[:100]}")
+
+    # Method 2: Try playAddr field
+    try:
+        print(f"  🎯 Method 2: Trying playAddr field...")
+        video_data = video_info.get('video', {})
+        play_addr = video_data.get('playAddr') or video_data.get('play_addr')
+
+        if play_addr:
+            # playAddr might be a string URL or a dict with UrlList
+            if isinstance(play_addr, str):
+                url_list = [play_addr]
+            elif isinstance(play_addr, dict):
+                url_list = play_addr.get('UrlList', [])
+            else:
+                url_list = []
+
+            for url_idx, url in enumerate(url_list):
+                try:
+                    print(f"    Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}...")
+                    response = requests.get(url, headers=headers, timeout=30)
+
+                    if response.status_code == 200 and len(response.content) > 1000:
+                        print(f"  ✅ Success with playAddr method! Size: {len(response.content)} bytes")
+                        return response.content
+                    else:
+                        print(f"    ⚠️  Bad response: status={response.status_code}, size={len(response.content)}")
+                except Exception as url_error:
+                    print(f"    ⚠️  URL failed: {str(url_error)[:50]}")
+                    continue
+    except Exception as e:
+        print(f"  ⚠️  playAddr method failed: {str(e)[:100]}")
+
+    # Method 3: Try hdplay field
+    try:
+        print(f"  🎯 Method 3: Trying hdplay field...")
+        video_data = video_info.get('video', {})
+        hdplay = video_data.get('hdplay') or video_data.get('hdPlay')
+
+        if hdplay:
+            # hdplay might be a string URL or a dict with UrlList
+            if isinstance(hdplay, str):
+                url_list = [hdplay]
+            elif isinstance(hdplay, dict):
+                url_list = hdplay.get('UrlList', [])
+            else:
+                url_list = []
+
+            for url_idx, url in enumerate(url_list):
+                try:
+                    print(f"    Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}...")
+                    response = requests.get(url, headers=headers, timeout=30)
+
+                    if response.status_code == 200 and len(response.content) > 1000:
+                        print(f"  ✅ Success with hdplay method! Size: {len(response.content)} bytes")
+                        return response.content
+                    else:
+                        print(f"    ⚠️  Bad response: status={response.status_code}, size={len(response.content)}")
+                except Exception as url_error:
+                    print(f"    ⚠️  URL failed: {str(url_error)[:50]}")
+                    continue
+    except Exception as e:
+        print(f"  ⚠️  hdplay method failed: {str(e)[:100]}")
+
+    # All methods failed
+    raise Exception("Could not download video without watermark - all methods failed")
+
+
 async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=None):
     """
-    Downloads videos, then immediately stores them in the database as BLOBs.
+    Downloads videos WITHOUT WATERMARK, then immediately stores them in the database as BLOBs.
     Routes to download_image_post if it's an image collection.
+
+    Uses watermark-free download methods as primary approach:
+    1. bitrateInfo PlayAddr URLs (highest quality, no watermark)
+    2. playAddr field (clean video URL)
+    3. hdplay field (HD quality without watermark)
+    4. Falls back to standard video.bytes() if needed
 
     Args:
         video_ids: list of video ids to download
@@ -388,8 +536,9 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             create_time = int(video_info.get('createTime', 0))
             duration = video_info.get('video', {}).get('duration', 0)
 
-            # Download video bytes
-            video_bytes = await video.bytes()
+            # Download video bytes WITHOUT WATERMARK using new method
+            print(f"📥 Downloading video without watermark...")
+            video_bytes = await download_video_without_watermark(video_info)
             download_timestamp = int(time.time())
 
             # Generate thumbnail from first frame
@@ -426,17 +575,7 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
         except Exception as e:
             error_str = str(e).lower()
 
-            # Try alternative download method before giving up
-            if "imagepost" not in error_str:
-                try:
-                    alt_result = await alt_video_download(video_id, tt_api, whisper_model)
-                    if alt_result.get('status') == 'success':
-                        results.append(alt_result)
-                        continue
-                except Exception as alt_e:
-                    pass
-
-            # If alternative method also failed, categorize the error
+            # If watermark-free method failed, categorize the error
             conn = get_connection()
             cursor = conn.cursor()
 

@@ -125,6 +125,10 @@ async def get_videos(
     ocr_status: Optional[str] = Query(
         None, description="Filter by OCR: 'ocr' or 'not_ocr'"
     ),
+    tags: Optional[List[str]] = Query(
+        None,
+        description="Filter by tags (AND logic - video must have ALL selected tags)",
+    ),
 ):
     """
     Get a paginated list of all videos.
@@ -168,6 +172,20 @@ async def get_videos(
                 where_clause += " AND v.ocr_status = 1"
             elif ocr_status == "not_ocr":
                 where_clause += " AND v.ocr_status = 0"
+
+        # Tags filter (AND logic - video must have ALL specified tags)
+        if tags:
+            # Create placeholders for the IN clause
+            placeholders = ", ".join(["?"] * len(tags))
+            where_clause += f""" AND v.id IN (
+                SELECT video_id 
+                FROM tags 
+                WHERE manual_tag IN ({placeholders})
+                GROUP BY video_id 
+                HAVING COUNT(DISTINCT manual_tag) = ?
+            )"""
+            params.extend(tags)
+            params.append(len(tags))
 
         # Get total count
         count_query = f"SELECT COUNT(*) FROM video_data v {where_clause}"
@@ -575,6 +593,47 @@ async def get_image(video_id: str, index: int):
         conn.close()
 
 
+@app.post("/api/videos/{video_id}/tags")
+async def add_video_tag(video_id: str, tag: str = Query(..., description="Tag to add")):
+    """
+    Add a manual tag to a video.
+
+    Creates a new tag entry in the tags table for the specified video.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from tagging import add_tags_to_post
+
+    result = add_tags_to_post(video_id, tag)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
+
+
+@app.get("/api/tags")
+async def get_all_tags_endpoint():
+    """
+        Get all unique manual and automatic tags used across all videos.
+
+        Returns a list of all tags with their usage counts for the frontend
+    to display as filter options.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from tagging import get_all_tags
+
+    result = get_all_tags()
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
+
+
 @app.get("/api/search")
 async def search_videos(
     q: str = Query(..., min_length=1, description="Search query"),
@@ -592,6 +651,10 @@ async def search_videos(
     ),
     ocr_status: Optional[str] = Query(
         None, description="Filter by OCR status: 'ocr' or 'not_ocr'"
+    ),
+    tags: Optional[List[str]] = Query(
+        None,
+        description="Filter by tags (AND logic - video must have ALL selected tags)",
     ),
 ):
     """
@@ -641,6 +704,20 @@ async def search_videos(
             where_clause += " AND v.ocr_status = 1"
         elif ocr_status == "not_ocr":
             where_clause += " AND v.ocr_status = 0"
+
+    # Tags filter (AND logic - video must have ALL specified tags)
+    if tags:
+        # Create placeholders for the IN clause
+        placeholders = ", ".join(["?"] * len(tags))
+        where_clause += f""" AND v.id IN (
+            SELECT video_id 
+            FROM tags 
+            WHERE manual_tag IN ({placeholders})
+            GROUP BY video_id 
+            HAVING COUNT(DISTINCT manual_tag) = ?
+        )"""
+        params.extend(tags)
+        params.append(len(tags))
 
     try:
         # Get total count of matching videos

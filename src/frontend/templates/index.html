@@ -21,103 +21,144 @@
             </div>
         </header>
 
-        <!-- Stats Summary -->
-        <div class="stats-summary">
-            <span class="total-count" id="stat-total-text">- total</span>
-            <span class="stat-inline"><span class="icon">⬇️</span> <span id="stat-downloaded">-</span> downloaded</span>
-            <span class="stat-inline"><span class="icon">🎤</span> <span id="stat-transcribed">-</span> transcribed</span>
-            <span class="stat-inline"><span class="icon">👁️</span> <span id="stat-ocr">-</span> ocr'd</span>
-        </div>
-
-        <!-- Filters -->
-        <div class="filters-section">
-            <!-- Download Mode (Mutually Exclusive) -->
-            <div class="filter-row">
-                <span class="filter-category">View:</span>
-                <label class="filter-radio-label">
-                    <input type="radio" name="download-mode" id="mode-downloaded" value="downloaded" checked>
-                    <span>Downloaded Posts</span>
-                </label>
-                <label class="filter-radio-label">
-                    <input type="radio" name="download-mode" id="mode-not-downloaded" value="not_downloaded">
-                    <span>Not Downloaded</span>
-                </label>
-            </div>
-            
-            <!-- Type Filters (Checkboxes with Select All/Deselect All) -->
-            <div class="filter-row" id="type-filter-row">
-                <span class="filter-category">Type:</span>
-                <label class="filter-label">
-                    <input type="checkbox" id="filter-videos" checked>
-                    <span>Videos</span>
-                </label>
-                <label class="filter-label">
-                    <input type="checkbox" id="filter-images" checked>
-                    <span>Image Posts</span>
-                </label>
-                <div class="filter-actions">
-                    <button class="filter-action-btn" id="type-select-all">All</button>
-                    <button class="filter-action-btn" id="type-deselect-all">None</button>
+        <div class="main-layout">
+            <!-- Sidebar with Stats and Filters -->
+            <aside class="sidebar">
+                <!-- Stats Section -->
+                <div class="sidebar-section">
+                    <h3>Stats</h3>
+                    <div class="stats-vertical">
+                        <div class="stat-item">
+                            <span class="stat-number" id="stat-total">-</span>
+                            <span class="stat-label">total</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="stat-downloaded">-</span>
+                            <span class="stat-label">downloaded</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="stat-transcribed">-</span>
+                            <span class="stat-label">transcribed</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="stat-ocr">-</span>
+                            <span class="stat-label">ocr'd</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Transcription Status (Mutually Exclusive) -->
-            <div class="filter-row filter-group" id="transcription-filter-row">
-                <span class="filter-category">Transcription:</span>
-                <label class="filter-radio-label">
-                    <input type="radio" name="transcription-status" id="filter-transcribed" value="transcribed" checked>
-                    <span>Transcribed</span>
-                </label>
-                <label class="filter-radio-label">
-                    <input type="radio" name="transcription-status" id="filter-not-transcribed" value="not_transcribed">
-                    <span>Not Transcribed</span>
-                </label>
-                <span class="filter-divider">|</span>
-                <label class="filter-radio-label">
-                    <input type="radio" name="transcription-status" id="filter-transcription-all" value="all">
-                    <span>Both</span>
-                </label>
-            </div>
-            
-            <!-- OCR Status (Mutually Exclusive) -->
-            <div class="filter-row filter-group" id="ocr-filter-row">
-                <span class="filter-category">OCR:</span>
-                <label class="filter-radio-label">
-                    <input type="radio" name="ocr-status" id="filter-ocr" value="ocr" checked>
-                    <span>OCR'd</span>
-                </label>
-                <label class="filter-radio-label">
-                    <input type="radio" name="ocr-status" id="filter-not-ocr" value="not_ocr">
-                    <span>Not OCR'd</span>
-                </label>
-                <span class="filter-divider">|</span>
-                <label class="filter-radio-label">
-                    <input type="radio" name="ocr-status" id="filter-ocr-all" value="all">
-                    <span>Both</span>
-                </label>
-            </div>
+
+                <!-- Filters Section -->
+                <div class="sidebar-section">
+                    <h3>Filters</h3>
+                    
+                    <!-- View Filter -->
+                    <div class="filter-block">
+                        <div class="filter-header">View</div>
+                        <div class="filter-options">
+                            <label class="filter-radio-label">
+                                <input type="radio" name="download-mode" id="mode-downloaded" value="downloaded" checked>
+                                <span>Downloaded Posts</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="download-mode" id="mode-not-downloaded" value="not_downloaded">
+                                <span>Not Downloaded</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Type Filter -->
+                    <div class="filter-block" id="type-filter-block">
+                        <div class="filter-header">Type</div>
+                        <div class="filter-options">
+                            <label class="filter-label">
+                                <input type="checkbox" id="filter-videos" checked>
+                                <span>Videos</span>
+                            </label>
+                            <label class="filter-label">
+                                <input type="checkbox" id="filter-images" checked>
+                                <span>Image Posts</span>
+                            </label>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="filter-action-btn" id="type-select-all">All</button>
+                            <button class="filter-action-btn" id="type-deselect-all">None</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Transcription Filter -->
+                    <div class="filter-block" id="transcription-filter-block">
+                        <div class="filter-header">Transcription</div>
+                        <div class="filter-options">
+                            <label class="filter-radio-label">
+                                <input type="radio" name="transcription-status" id="filter-transcribed" value="transcribed" checked>
+                                <span>Transcribed</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="transcription-status" id="filter-not-transcribed" value="not_transcribed">
+                                <span>Not Transcribed</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="transcription-status" id="filter-transcription-all" value="all">
+                                <span>Both</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- OCR Filter -->
+                    <div class="filter-block" id="ocr-filter-block">
+                        <div class="filter-header">OCR</div>
+                        <div class="filter-options">
+                            <label class="filter-radio-label">
+                                <input type="radio" name="ocr-status" id="filter-ocr" value="ocr" checked>
+                                <span>OCR'd</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="ocr-status" id="filter-not-ocr" value="not_ocr">
+                                <span>Not OCR'd</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="ocr-status" id="filter-ocr-all" value="all">
+                                <span>Both</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- User Tags Filter -->
+                    <div class="filter-block" id="tags-filter-block">
+                        <div class="filter-header">User Tags</div>
+                        <div class="filter-options" id="user-tags-list">
+                            <p class="tags-loading">Loading tags...</p>
+                        </div>
+                        <div class="filter-actions" id="tags-actions" style="display: none;">
+                            <button class="filter-action-btn" id="tags-select-all">All</button>
+                            <button class="filter-action-btn" id="tags-clear">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="content-area">
+                <div id="video-grid" class="video-grid">
+                    <!-- Videos will be loaded here -->
+                </div>
+                
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Loading videos...</p>
+                </div>
+
+                <div id="no-results" class="no-results hidden">
+                    <p>No videos found.</p>
+                </div>
+
+                <div id="pagination" class="pagination hidden">
+                    <button id="prev-btn" class="pagination-btn" disabled>Previous</button>
+                    <span id="page-info"></span>
+                    <button id="next-btn" class="pagination-btn" disabled>Next</button>
+                </div>
+            </main>
         </div>
-
-        <main>
-            <div id="video-grid" class="video-grid">
-                <!-- Videos will be loaded here -->
-            </div>
-            
-            <div id="loading" class="loading hidden">
-                <div class="spinner"></div>
-                <p>Loading videos...</p>
-            </div>
-
-            <div id="no-results" class="no-results hidden">
-                <p>No videos found.</p>
-            </div>
-
-            <div id="pagination" class="pagination hidden">
-                <button id="prev-btn" class="pagination-btn" disabled>Previous</button>
-                <span id="page-info"></span>
-                <button id="next-btn" class="pagination-btn" disabled>Next</button>
-            </div>
-        </main>
     </div>
 
     <!-- Video Modal -->
@@ -138,6 +179,10 @@
                     <h2 id="modal-title"></h2>
                     <p id="modal-creator"></p>
                     <p id="modal-date"></p>
+                    <div id="modal-tags-section" class="modal-tags-section">
+                        <h4>Tags</h4>
+                        <div id="modal-tags-list"></div>
+                    </div>
                     <p id="modal-description"></p>
                     <a id="modal-tiktok-link" href="#" target="_blank" class="tiktok-link">View on TikTok</a>
                     <div id="transcription-section" class="transcription-section hidden">

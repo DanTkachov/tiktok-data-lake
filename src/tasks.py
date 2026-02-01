@@ -6,7 +6,7 @@ from TikTokApi import TikTokApi
 
 app = Celery('tasks', backend='redis://localhost:6379/0', broker='redis://localhost:6379/0')
 app.conf.task_routes = {
-    'src.tasks.download_task': {'queue': 'downloads', 'rate_limit': '18/m'}  # 60 total per minute
+    'src.tasks.download_task': {'queue': 'downloads', 'rate_limit': '25/m'}
 }
 
 # Global state to hold the persistent loop and API session
