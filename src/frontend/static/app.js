@@ -70,8 +70,10 @@ const modalDescription = document.getElementById('modal-description');
 const modalTiktokLink = document.getElementById('modal-tiktok-link');
 const transcriptionSection = document.getElementById('transcription-section');
 const modalTranscription = document.getElementById('modal-transcription');
+const copyTranscriptionBtn = document.getElementById('copy-transcription');
 const ocrSection = document.getElementById('ocr-section');
 const modalOcr = document.getElementById('modal-ocr');
+const copyOcrBtn = document.getElementById('copy-ocr');
 const modalTagsSection = document.getElementById('modal-tags-section');
 const modalTagsList = document.getElementById('modal-tags-list');
 const modalAddTagBtn = document.getElementById('modal-add-tag-btn');
@@ -825,6 +827,19 @@ async function openVideoModal(videoId) {
             modalTagInput.onblur = handleTagSubmit;
         }
         
+        // Copy button event listeners
+        if (copyTranscriptionBtn && modalTranscription.textContent) {
+            copyTranscriptionBtn.onclick = () => {
+                copyToClipboard(modalTranscription.textContent, copyTranscriptionBtn);
+            };
+        }
+        
+        if (copyOcrBtn && modalOcr.textContent) {
+            copyOcrBtn.onclick = () => {
+                copyToClipboard(modalOcr.textContent, copyOcrBtn);
+            };
+        }
+        
     } catch (error) {
         console.error('Error opening video:', error);
         alert('Failed to load video. Please try again.');
@@ -950,6 +965,27 @@ function showNoResults() {
 function hideNoResults() {
     noResultsEl.classList.add('hidden');
     videoGrid.classList.remove('hidden');
+}
+
+// Utility: Copy text to clipboard
+async function copyToClipboard(text, button) {
+    try {
+        await navigator.clipboard.writeText(text);
+        
+        // Show feedback
+        const originalText = button.textContent;
+        button.textContent = '✓';
+        button.classList.add('copied');
+        
+        // Reset after 2 seconds
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('copied');
+        }, 2000);
+    } catch (err) {
+        console.error('Failed to copy text:', err);
+        alert('Failed to copy to clipboard');
+    }
 }
 
 // Utility: Escape HTML to prevent XSS

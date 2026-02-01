@@ -785,6 +785,53 @@ header h1 {
     white-space: pre-wrap;
 }
 
+/* Hover effect for transcription and OCR sections */
+.transcription-section:hover,
+.ocr-section:hover {
+    background: rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+/* Section header with copy button */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.section-header h3 {
+    margin: 0;
+}
+
+/* Copy button */
+.copy-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(92, 122, 156, 0.4);
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.copy-btn:hover {
+    background: rgba(92, 122, 156, 0.7);
+    transform: scale(1.1);
+}
+
+.copy-btn.copied {
+    background: rgba(76, 175, 80, 0.6);
+}
+
 /* Utility classes */
 .hidden {
     display: none !important;
