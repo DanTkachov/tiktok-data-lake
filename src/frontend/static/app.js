@@ -732,6 +732,10 @@ async function openVideoModal(videoId) {
         modalTitle.textContent = video.title;
         modalCreator.textContent = `@${video.uploader_id} (${video.uploader})`;
         modalDate.textContent = `Posted: ${video.create_date} | Favorited: ${video.favorited_date}`;
+        
+        // Load and display tags for this video
+        await loadVideoTags(videoId);
+        
         modalDescription.textContent = video.description || 'No description';
         modalTiktokLink.href = video.tiktok_url;
         

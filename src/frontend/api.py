@@ -613,6 +613,28 @@ async def add_video_tag(video_id: str, tag: str = Query(..., description="Tag to
     return result
 
 
+@app.get("/api/videos/{video_id}/tags")
+async def get_video_tags(video_id: str):
+    """
+    Get all tags (manual and automatic) for a specific video.
+
+    Returns both manual tags and automatic tags with confidence scores.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from tagging import get_post_tags
+
+    result = get_post_tags(video_id)
+
+    if result["status"] == "error":
+        raise HTTPException(
+            status_code=500, detail=result.get("message", "Failed to get tags")
+        )
+
+    return result
+
+
 @app.get("/api/tags")
 async def get_all_tags_endpoint():
     """
