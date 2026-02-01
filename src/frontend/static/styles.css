@@ -720,6 +720,21 @@ header h1 {
     color: #ffffff;
 }
 
+/* Modal title row with TikTok link */
+.modal-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.modal-title-row h2 {
+    font-size: 20px;
+    line-height: 1.2;
+    color: #ffffff;
+    margin: 0;
+}
+
 .video-info p {
     color: rgba(255, 255, 255, 0.8);
     margin-bottom: 6px;
@@ -736,7 +751,6 @@ header h1 {
 
 .tiktok-link {
     display: inline-block;
-    margin-top: 14px;
     padding: 10px 20px;
     background: linear-gradient(135deg, #5c7a9c 0%, #7a9ab8 100%);
     color: white;
@@ -746,6 +760,7 @@ header h1 {
     font-weight: 600;
     transition: transform 0.2s, box-shadow 0.2s;
     box-shadow: 0 4px 12px rgba(92, 122, 156, 0.3);
+    white-space: nowrap;
 }
 
 .tiktok-link:hover {
