@@ -569,7 +569,14 @@ function createVideoCard(video) {
             e.target.closest('.tag-input-container')) {
             return;
         }
-        openVideoModal(video.id);
+        // Check if video is downloaded
+        if (video.download_status === 0 || video.download_status === false) {
+            // Show simplified modal for not downloaded videos
+            openNotDownloadedModal(video);
+        } else {
+            // Show full modal for downloaded videos
+            openVideoModal(video.id);
+        }
     });
     
     // Add tag button handler
@@ -844,6 +851,42 @@ async function openVideoModal(videoId) {
         console.error('Error opening video:', error);
         alert('Failed to load video. Please try again.');
     }
+}
+
+// Open simplified modal for not downloaded videos
+function openNotDownloadedModal(video) {
+    // Reset carousel state
+    isImageCarousel = false;
+    
+    // Update modal content with just the title and TikTok link
+    modalTitle.textContent = video.title || 'Untitled';
+    modalCreator.textContent = `@${video.uploader_id || 'unknown'}`;
+    modalDate.textContent = 'Not downloaded yet';
+    modalDescription.textContent = '';
+    modalTiktokLink.href = video.tiktok_url;
+    
+    // Hide video/image containers
+    videoContainer.classList.add('hidden');
+    imageContainer.classList.add('hidden');
+    
+    // Hide all the sections that don't apply to not-downloaded videos
+    if (modalTagsSection) modalTagsSection.classList.add('hidden');
+    if (transcriptionSection) transcriptionSection.classList.add('hidden');
+    if (ocrSection) ocrSection.classList.add('hidden');
+    if (document.querySelector('.description-section')) {
+        document.querySelector('.description-section').classList.add('hidden');
+    }
+    
+    // Show the simplified modal
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    // Close modal on click outside
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    };
 }
 
 // Create image carousel

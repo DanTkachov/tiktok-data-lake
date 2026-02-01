@@ -210,7 +210,8 @@ async def get_videos(
                 v.ocr_status,
                 v.date_favorited,
                 v.video_is_deleted,
-                v.video_is_private
+                v.video_is_private,
+                v.download_status
             FROM video_data v
             {where_clause}
             ORDER BY v.date_favorited DESC NULLS LAST, v.create_time DESC
@@ -241,6 +242,7 @@ async def get_videos(
                 "favorited_date": format_timestamp(row[11]),
                 "is_deleted": bool(row[12]),
                 "is_private": bool(row[13]),
+                "download_status": bool(row[14]),
             }
 
             # For image posts, use duration field as image count
@@ -768,6 +770,7 @@ async def search_videos(
                 v.date_favorited,
                 v.video_is_deleted,
                 v.video_is_private,
+                v.download_status,
                 v.transcription,
                 v.ocr
             FROM video_data v
@@ -786,8 +789,8 @@ async def search_videos(
             title = row[1] or ""
             uploader = row[2] or ""
             description = row[4] or ""
-            transcription = row[14] or ""
-            ocr = row[15] or ""
+            transcription = row[15] or ""
+            ocr = row[16] or ""
 
             match_type = []
             match_text = ""
@@ -831,6 +834,7 @@ async def search_videos(
                     "favorited_date": format_timestamp(row[11]),
                     "is_deleted": bool(row[12]),
                     "is_private": bool(row[13]),
+                    "download_status": bool(row[14]),
                     "match_type": match_type,
                     "match_snippet": _get_snippet(match_text, q),
                 }
