@@ -94,6 +94,51 @@ header h1 {
     box-shadow: 0 5px 18px rgba(92, 122, 156, 0.5);
 }
 
+/* Admin Action Buttons */
+.admin-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.admin-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-btn-primary {
+    background: linear-gradient(135deg, #4a7c59 0%, #5d9c6d 100%);
+    color: white;
+}
+
+.admin-btn-primary:hover {
+    background: linear-gradient(135deg, #3d6a4a 0%, #4a8c5a 100%);
+    transform: translateY(-1px);
+}
+
+.admin-btn-secondary {
+    background: linear-gradient(135deg, #5c7a9c 0%, #7a9ab8 100%);
+    color: white;
+}
+
+.admin-btn-secondary:hover {
+    background: linear-gradient(135deg, #4a6a8c 0%, #6a8aa8 100%);
+    transform: translateY(-1px);
+}
+
+.admin-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* Main Layout with Sidebar */
 .main-layout {
     display: flex;

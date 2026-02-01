@@ -235,6 +235,9 @@ async function init() {
             closeModal();
         }
     });
+    
+    // Admin button handlers
+    setupAdminButtons();
 }
 
 // Load database statistics
@@ -1037,6 +1040,123 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Admin Actions
+function setupAdminButtons() {
+    const btnIngestJson = document.getElementById('btn-ingest-json');
+    const btnQueueTranscriptions = document.getElementById('btn-queue-transcriptions');
+    const btnQueueOcr = document.getElementById('btn-queue-ocr');
+    
+    if (btnIngestJson) {
+        btnIngestJson.addEventListener('click', handleIngestJson);
+    }
+    
+    if (btnQueueTranscriptions) {
+        btnQueueTranscriptions.addEventListener('click', handleQueueTranscriptions);
+    }
+    
+    if (btnQueueOcr) {
+        btnQueueOcr.addEventListener('click', handleQueueOcr);
+    }
+}
+
+async function handleIngestJson() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+        
+        const btn = document.getElementById('btn-ingest-json');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Ingesting...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('json_file', file);
+            
+            const response = await fetch('/api/admin/ingest-json', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('JSON file ingested successfully!\n\nResult: ' + JSON.stringify(result.result, null, 2));
+                // Reload page to show new data
+                location.reload();
+            } else {
+                alert('Error: ' + result.detail);
+            }
+        } catch (error) {
+            console.error('Error ingesting JSON:', error);
+            alert('Failed to ingest JSON file: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    };
+    
+    input.click();
+}
+
+async function handleQueueTranscriptions() {
+    const btn = document.getElementById('btn-queue-transcriptions');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Queueing...';
+    
+    try {
+        const response = await fetch('/api/admin/queue-transcriptions', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(result.message);
+        } else {
+            alert('Error: ' + result.detail);
+        }
+    } catch (error) {
+        console.error('Error queueing transcriptions:', error);
+        alert('Failed to queue transcriptions: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+async function handleQueueOcr() {
+    const btn = document.getElementById('btn-queue-ocr');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Queueing...';
+    
+    try {
+        const response = await fetch('/api/admin/queue-ocr', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(result.message);
+        } else {
+            alert('Error: ' + result.detail);
+        }
+    } catch (error) {
+        console.error('Error queueing OCR:', error);
+        alert('Failed to queue OCR: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
 }
 
 // Start the app

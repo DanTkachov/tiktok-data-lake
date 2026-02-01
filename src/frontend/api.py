@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path to import db module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -20,7 +20,11 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 import json
 
-from db import get_connection, DB_PATH
+from db import get_connection, DB_PATH, init_database
+
+# Fix import path for tasks module
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import tasks as tasks_module
 
 app = FastAPI(
     title="TikTok Data Lake",
@@ -894,6 +898,133 @@ def _get_snippet(text: str, query: str, context_chars: int = 50) -> str:
         snippet = snippet + "..."
 
     return snippet
+
+
+# Admin API Endpoints
+
+
+@app.post("/api/admin/init-database")
+async def admin_init_database():
+    """
+    Initialize the database if it doesn't exist.
+
+    Returns:
+        Status message indicating success or if database already exists
+    """
+    try:
+        import os
+
+        if os.path.exists(DB_PATH):
+            return {
+                "status": "exists",
+                "message": "Database already exists",
+                "path": str(DB_PATH),
+            }
+
+        init_database()
+        return {
+            "status": "success",
+            "message": "Database initialized successfully",
+            "path": str(DB_PATH),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to initialize database: {str(e)}"
+        )
+
+
+@app.post("/api/admin/ingest-json")
+async def admin_ingest_json(json_file: UploadFile = File(...)):
+    """
+    Ingest a TikTok JSON file into the database.
+
+    This endpoint will:
+    1. Check if database exists, create it if not
+    2. Save the uploaded JSON file temporarily
+    3. Ingest the JSON data into the database
+    4. Clean up the temporary file
+
+    Args:
+        json_file: The TikTok JSON file to ingest
+
+    Returns:
+        Status and count of imported records
+    """
+    try:
+        import os
+        import tempfile
+
+        # Ensure database exists
+        if not os.path.exists(DB_PATH):
+            init_database()
+
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=".json", delete=False
+        ) as temp_file:
+            content = await json_file.read()
+            temp_file.write(content)
+            temp_path = temp_file.name
+
+        try:
+            # Ingest the JSON file
+            # Import ingest_json from db module directly
+            from db import ingest_json
+
+            result = ingest_json(temp_path)
+
+            return {
+                "status": "success",
+                "message": "JSON file ingested successfully",
+                "result": result,
+            }
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to ingest JSON: {str(e)}")
+
+
+@app.post("/api/admin/queue-transcriptions")
+async def admin_queue_transcriptions():
+    """
+    Queue transcription tasks for all downloaded videos that haven't been transcribed yet.
+
+    Returns:
+        Number of videos queued for transcription
+    """
+    try:
+        count = tasks_module.queue_transcriptions()
+        return {
+            "status": "success",
+            "message": f"Queued {count} videos for transcription",
+            "count": count,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to queue transcriptions: {str(e)}"
+        )
+
+
+@app.post("/api/admin/queue-ocr")
+async def admin_queue_ocr():
+    """
+    Queue OCR tasks for all downloaded image posts that haven't been OCR'd yet.
+
+    Returns:
+        Number of image posts queued for OCR
+    """
+    try:
+        count = tasks_module.queue_ocr()
+        return {
+            "status": "success",
+            "message": f"Queued {count} image posts for OCR",
+            "count": count,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to queue OCR: {str(e)}")
 
 
 if __name__ == "__main__":
