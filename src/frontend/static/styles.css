@@ -110,7 +110,8 @@ header h1 {
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 20px;
-    height: fit-content;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
     position: sticky;
     top: 20px;
 }
