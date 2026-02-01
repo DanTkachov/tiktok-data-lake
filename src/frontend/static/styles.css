@@ -742,9 +742,6 @@ header h1 {
 }
 
 #modal-description {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
     color: rgba(255, 255, 255, 0.9);
     line-height: 1.6;
 }
@@ -914,6 +911,20 @@ header h1 {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+/* Description Section */
+.description-section {
+    margin: 12px 0;
+}
+
+.description-section h4 {
+    font-size: 13px;
+    color: #8fa3bf;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
 }
 
 .video-tag-badge {
