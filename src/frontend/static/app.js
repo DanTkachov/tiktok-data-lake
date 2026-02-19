@@ -80,8 +80,40 @@ const modalAddTagBtn = document.getElementById('modal-add-tag-btn');
 const modalTagInputContainer = document.getElementById('modal-tag-input-container');
 const modalTagInput = document.getElementById('modal-tag-input');
 
+// Setup collapsible sidebar sections
+function setupCollapsibleSections() {
+    // Get all collapse buttons
+    const collapseBtns = document.querySelectorAll('.collapse-btn, .collapse-btn-small');
+    
+    collapseBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-target');
+            const target = document.getElementById(targetId);
+            
+            if (target) {
+                // Toggle collapsed state
+                target.classList.toggle('collapsed');
+                btn.classList.toggle('collapsed');
+                
+                // Update icon
+                const icon = btn.querySelector('.collapse-icon');
+                if (icon) {
+                    if (target.classList.contains('collapsed')) {
+                        icon.textContent = '▶';
+                    } else {
+                        icon.textContent = '▼';
+                    }
+                }
+            }
+        });
+    });
+}
+
 // Initialize
 async function init() {
+    // Setup collapsible sidebar sections
+    setupCollapsibleSections();
+    
     // Load stats
     await loadStats();
     
