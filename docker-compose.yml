@@ -10,5 +10,63 @@ services:
       - redis_data:/data
     restart: always
 
+  worker-downloads:
+    build: .
+    command: celery -A src.tasks worker --queues=downloads --concurrency=${DOWNLOADS_CONCURRENCY:-1} -n downloads_worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}
+    volumes:
+      - ./db:/app/data
+      - ./tiktok-data:/app/tiktok-data
+      - ./src:/app/src
+    depends_on:
+      - redis
+    restart: always
+
+  worker-transcription:
+    build: .
+    command: celery -A src.tasks worker --queues=transcription --concurrency=${TRANSCRIPTION_CONCURRENCY:-4} -n transcription_worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}
+    volumes:
+      - ./db:/app/data
+      - ./tiktok-data:/app/tiktok-data
+      - ./src:/app/src
+    depends_on:
+      - redis
+    restart: always
+
+  worker-ocr:
+    build: .
+    command: celery -A src.tasks worker --queues=ocr --concurrency=${OCR_CONCURRENCY:-4} -n ocr_worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}
+    volumes:
+      - ./db:/app/data
+      - ./tiktok-data:/app/tiktok-data
+      - ./src:/app/src
+    depends_on:
+      - redis
+    restart: always
+
+  web:
+    build: .
+    command: python src/frontend/start_server.py
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./db:/app/data
+      - ./tiktok-data:/app/tiktok-data
+      - ./src:/app/src
+    depends_on:
+      - redis
+    restart: always
+
 volumes:
   redis_data:

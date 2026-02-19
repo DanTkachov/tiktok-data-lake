@@ -1,0 +1,70 @@
+# Database files (mounted as volume, not copied)
+db/
+*.db
+*.sqlite
+*.sqlite3
+tiktok_videos.db
+
+# Video storage (large files, mounted as volumes)
+bookmarked_videos/
+liked_videos/
+
+# TikTok data exports (mounted as volumes)
+tiktok-data/
+
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+*.md
+!README.md
+
+# Local env files
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Temporary files
+*.log
+tmp/
+temp/

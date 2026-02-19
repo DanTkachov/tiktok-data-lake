@@ -22,7 +22,7 @@ db_path_mock = Path(__file__).parent.parent / "db" / "tiktok_archive_mock.db"
 db_path_mock_100 = Path(__file__).parent.parent / "db" / "tiktok_archive_mock_100.db"
 
 
-DB_PATH = db_path_mock_100
+DB_PATH = Path(os.environ.get("DB_PATH", db_path_mock_100))
 
 
 def init_database():
@@ -45,8 +45,12 @@ def init_database():
 
         # Enable WAL mode for concurrent access (allows readers and writers simultaneously)
         cursor.execute("PRAGMA journal_mode=WAL;")
-        cursor.execute("PRAGMA synchronous=NORMAL;")  # Faster writes, still safe with WAL
-        cursor.execute("PRAGMA busy_timeout=5000;")   # Wait 5s if DB is locked instead of failing immediately
+        cursor.execute(
+            "PRAGMA synchronous=NORMAL;"
+        )  # Faster writes, still safe with WAL
+        cursor.execute(
+            "PRAGMA busy_timeout=5000;"
+        )  # Wait 5s if DB is locked instead of failing immediately
 
         # video_data: stores all metadata from TikTok JSON export
         cursor.execute("""
@@ -117,6 +121,7 @@ def init_database():
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
 
+
 def get_connection():
     """Returns a connection to the database."""
     conn = sqlite3.connect(DB_PATH)
@@ -137,7 +142,7 @@ def extract_video_thumbnail(video_bytes, target_width=320):
         bytes: JPEG-encoded thumbnail image
     """
     # Write video bytes to temporary file
-    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_file:
         temp_file.write(video_bytes)
         temp_path = temp_file.name
 
@@ -158,7 +163,9 @@ def extract_video_thumbnail(video_bytes, target_width=320):
         target_height = int(target_width * aspect_ratio)
 
         # Resize frame
-        resized = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+        resized = cv2.resize(
+            frame, (target_width, target_height), interpolation=cv2.INTER_AREA
+        )
 
         # Convert BGR to RGB (opencv uses BGR)
         rgb_frame = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
@@ -168,7 +175,7 @@ def extract_video_thumbnail(video_bytes, target_width=320):
 
         # Encode as JPEG with quality 85
         output = BytesIO()
-        pil_image.save(output, format='JPEG', quality=85, optimize=True)
+        pil_image.save(output, format="JPEG", quality=85, optimize=True)
         thumbnail_bytes = output.getvalue()
 
         return thumbnail_bytes
@@ -189,12 +196,15 @@ def extract_image_thumbnail(zip_bytes, target_width=320):
     Returns:
         bytes: JPEG-encoded thumbnail image
     """
-    with zipfile.ZipFile(BytesIO(zip_bytes), 'r') as zip_file:
+    with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zip_file:
         # Get sorted list of image files
-        image_files = sorted([
-            name for name in zip_file.namelist()
-            if name.lower().endswith(('.jpg', '.jpeg', '.png'))
-        ])
+        image_files = sorted(
+            [
+                name
+                for name in zip_file.namelist()
+                if name.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        )
 
         if not image_files:
             raise ValueError("No image files found in ZIP")
@@ -206,8 +216,8 @@ def extract_image_thumbnail(zip_bytes, target_width=320):
         pil_image = Image.open(BytesIO(first_image_bytes))
 
         # Convert to RGB if needed (handles RGBA, grayscale, etc.)
-        if pil_image.mode != 'RGB':
-            pil_image = pil_image.convert('RGB')
+        if pil_image.mode != "RGB":
+            pil_image = pil_image.convert("RGB")
 
         # Calculate new dimensions maintaining aspect ratio
         width, height = pil_image.size
@@ -215,11 +225,13 @@ def extract_image_thumbnail(zip_bytes, target_width=320):
         target_height = int(target_width * aspect_ratio)
 
         # Resize image
-        pil_image = pil_image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        pil_image = pil_image.resize(
+            (target_width, target_height), Image.Resampling.LANCZOS
+        )
 
         # Encode as JPEG with quality 85
         output = BytesIO()
-        pil_image.save(output, format='JPEG', quality=85, optimize=True)
+        pil_image.save(output, format="JPEG", quality=85, optimize=True)
         thumbnail_bytes = output.getvalue()
 
         return thumbnail_bytes
@@ -236,9 +248,8 @@ def ingest_json(json_file):
         Dictionary with statistics about the ingestion process
     """
 
-
     # Load the JSON file
-    with open(json_file, 'r', encoding='utf-8') as f:
+    with open(json_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     # Get favorite videos only (not liked videos)
@@ -248,12 +259,7 @@ def ingest_json(json_file):
     conn = get_connection()
     cursor = conn.cursor()
 
-    stats = {
-        "total": len(videos),
-        "inserted": 0,
-        "skipped": 0,
-        "errors": 0
-    }
+    stats = {"total": len(videos), "inserted": 0, "skipped": 0, "errors": 0}
 
     for video in videos:
         try:
@@ -265,7 +271,7 @@ def ingest_json(json_file):
                 continue
 
             # Extract ID from URL (last segment before trailing slash)
-            video_id = link.rstrip('/').split('/')[-1]
+            video_id = link.rstrip("/").split("/")[-1]
 
             # Check if video already exists (no duplicates, no overwriting)
             cursor.execute("SELECT id FROM video_data WHERE id = ?", (video_id,))
@@ -285,25 +291,28 @@ def ingest_json(json_file):
 
             # Insert into database with minimal info
             # Most fields are NULL and will be filled during download
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO video_data (
                     id, title, uploader, uploader_id, desc, create_time,
                     duration, tiktok_url, download_status, transcription_status,
                     transcription, ocr_status, ocr, date_favorited, video_is_deleted, video_is_private
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0, ?, ?, 0, 0)
-            """, (
-                video_id,
-                None,  # title - will be filled on download
-                None,  # uploader - will be filled on download
-                None,  # uploader_id - will be filled on download
-                None,  # desc - will be filled on download
-                None,  # create_time - will be filled on download
-                None,  # duration - will be filled on download
-                link,  # tiktok_url - from TikTok export
-                None,  # transcription - will be filled later
-                None,  # ocr - will be filled later
-                date_favorited  # date_favorited - when you favorited it (as timestamp)
-            ))
+            """,
+                (
+                    video_id,
+                    None,  # title - will be filled on download
+                    None,  # uploader - will be filled on download
+                    None,  # uploader_id - will be filled on download
+                    None,  # desc - will be filled on download
+                    None,  # create_time - will be filled on download
+                    None,  # duration - will be filled on download
+                    link,  # tiktok_url - from TikTok export
+                    None,  # transcription - will be filled later
+                    None,  # ocr - will be filled later
+                    date_favorited,  # date_favorited - when you favorited it (as timestamp)
+                ),
+            )
 
             stats["inserted"] += 1
 
@@ -316,11 +325,13 @@ def ingest_json(json_file):
 
     return stats
 
+
 # Pipeline: Download video ─────────────────────────────────► Store in db
 #                 │                                               ▲
 #                 │                                               │
 #                 │                                               │
 #                 └─────────────► Transcribe video ───────────────┘
+
 
 async def download_video_without_watermark(video_info):
     """
@@ -343,49 +354,59 @@ async def download_video_without_watermark(video_info):
 
     # Debug: Log the structure of video_info to help diagnose issues
     try:
-        video_data = video_info.get('video', {})
+        video_data = video_info.get("video", {})
         print(f"  🔍 DEBUG: video_info keys: {list(video_info.keys())}")
         print(f"  🔍 DEBUG: video_data keys: {list(video_data.keys())}")
     except Exception as debug_error:
         print(f"  ⚠️  DEBUG: Could not inspect video_info structure: {debug_error}")
 
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Referer': 'https://www.tiktok.com/',
-        'Origin': 'https://www.tiktok.com',
-        'Connection': 'keep-alive',
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Referer": "https://www.tiktok.com/",
+        "Origin": "https://www.tiktok.com",
+        "Connection": "keep-alive",
     }
 
     # Method 1: Try bitrateInfo PlayAddr URLs (best quality)
     try:
         print(f"  🎯 Method 1: Trying bitrateInfo PlayAddr URLs...")
-        video_data = video_info.get('video', {})
-        bitrate_info = video_data.get('bitrateInfo', [])
+        video_data = video_info.get("video", {})
+        bitrate_info = video_data.get("bitrateInfo", [])
 
         if bitrate_info:
             # Try each bitrate option (usually sorted by quality)
             for idx, bitrate_option in enumerate(bitrate_info):
-                play_addr = bitrate_option.get('PlayAddr', {})
-                url_list = play_addr.get('UrlList', [])
+                play_addr = bitrate_option.get("PlayAddr", {})
+                url_list = play_addr.get("UrlList", [])
 
-                print(f"    Trying bitrate option {idx + 1}/{len(bitrate_info)} with {len(url_list)} URLs...")
+                print(
+                    f"    Trying bitrate option {idx + 1}/{len(bitrate_info)} with {len(url_list)} URLs..."
+                )
 
                 # Try all URLs in the list
                 for url_idx, url in enumerate(url_list):
                     try:
-                        print(f"      Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}...")
+                        print(
+                            f"      Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}..."
+                        )
                         response = requests.get(url, headers=headers, timeout=30)
 
                         if response.status_code == 200 and len(response.content) > 1000:
-                            print(f"  ✅ Success with bitrateInfo method! Size: {len(response.content)} bytes")
+                            print(
+                                f"  ✅ Success with bitrateInfo method! Size: {len(response.content)} bytes"
+                            )
                             return response.content
                         else:
-                            print(f"      ⚠️  Bad response: status={response.status_code}, size={len(response.content)}")
+                            print(
+                                f"      ⚠️  Bad response: status={response.status_code}, size={len(response.content)}"
+                            )
                             # Debug: Show response content for troubleshooting
                             if len(response.content) < 2000:
-                                print(f"      🔍 Response content: {response.content[:500]}")
+                                print(
+                                    f"      🔍 Response content: {response.content[:500]}"
+                                )
                     except Exception as url_error:
                         print(f"      ⚠️  URL failed: {str(url_error)[:100]}")
                         continue
@@ -395,28 +416,34 @@ async def download_video_without_watermark(video_info):
     # Method 2: Try playAddr field
     try:
         print(f"  🎯 Method 2: Trying playAddr field...")
-        video_data = video_info.get('video', {})
-        play_addr = video_data.get('playAddr') or video_data.get('play_addr')
+        video_data = video_info.get("video", {})
+        play_addr = video_data.get("playAddr") or video_data.get("play_addr")
 
         if play_addr:
             # playAddr might be a string URL or a dict with UrlList
             if isinstance(play_addr, str):
                 url_list = [play_addr]
             elif isinstance(play_addr, dict):
-                url_list = play_addr.get('UrlList', [])
+                url_list = play_addr.get("UrlList", [])
             else:
                 url_list = []
 
             for url_idx, url in enumerate(url_list):
                 try:
-                    print(f"    Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}...")
+                    print(
+                        f"    Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}..."
+                    )
                     response = requests.get(url, headers=headers, timeout=30)
 
                     if response.status_code == 200 and len(response.content) > 1000:
-                        print(f"  ✅ Success with playAddr method! Size: {len(response.content)} bytes")
+                        print(
+                            f"  ✅ Success with playAddr method! Size: {len(response.content)} bytes"
+                        )
                         return response.content
                     else:
-                        print(f"    ⚠️  Bad response: status={response.status_code}, size={len(response.content)}")
+                        print(
+                            f"    ⚠️  Bad response: status={response.status_code}, size={len(response.content)}"
+                        )
                 except Exception as url_error:
                     print(f"    ⚠️  URL failed: {str(url_error)[:50]}")
                     continue
@@ -426,28 +453,34 @@ async def download_video_without_watermark(video_info):
     # Method 3: Try hdplay field
     try:
         print(f"  🎯 Method 3: Trying hdplay field...")
-        video_data = video_info.get('video', {})
-        hdplay = video_data.get('hdplay') or video_data.get('hdPlay')
+        video_data = video_info.get("video", {})
+        hdplay = video_data.get("hdplay") or video_data.get("hdPlay")
 
         if hdplay:
             # hdplay might be a string URL or a dict with UrlList
             if isinstance(hdplay, str):
                 url_list = [hdplay]
             elif isinstance(hdplay, dict):
-                url_list = hdplay.get('UrlList', [])
+                url_list = hdplay.get("UrlList", [])
             else:
                 url_list = []
 
             for url_idx, url in enumerate(url_list):
                 try:
-                    print(f"    Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}...")
+                    print(
+                        f"    Attempting URL {url_idx + 1}/{len(url_list)}: {url[:50]}..."
+                    )
                     response = requests.get(url, headers=headers, timeout=30)
 
                     if response.status_code == 200 and len(response.content) > 1000:
-                        print(f"  ✅ Success with hdplay method! Size: {len(response.content)} bytes")
+                        print(
+                            f"  ✅ Success with hdplay method! Size: {len(response.content)} bytes"
+                        )
                         return response.content
                     else:
-                        print(f"    ⚠️  Bad response: status={response.status_code}, size={len(response.content)}")
+                        print(
+                            f"    ⚠️  Bad response: status={response.status_code}, size={len(response.content)}"
+                        )
                 except Exception as url_error:
                     print(f"    ⚠️  URL failed: {str(url_error)[:50]}")
                     continue
@@ -485,7 +518,9 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
     else:
         ms_token = os.environ.get("ms_token", None)
         tt_api = TikTokApi()
-        await tt_api.create_sessions(ms_tokens=[ms_token], num_sessions=1, sleep_after=3)
+        await tt_api.create_sessions(
+            ms_tokens=[ms_token], num_sessions=1, sleep_after=3
+        )
 
     # Loop through all videos
     conn = get_connection()
@@ -496,17 +531,24 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
         try:
             # Get video URL from database
             print(f"🔍 Querying database for video {video_id}")
-            cursor.execute("SELECT tiktok_url FROM video_data WHERE id = ?", (video_id,))
+            cursor.execute(
+                "SELECT tiktok_url FROM video_data WHERE id = ?", (video_id,)
+            )
             result = cursor.fetchone()
             if not result:
-                results.append({"status": "error", "message": f"Video {video_id} not found in database"})
+                results.append(
+                    {
+                        "status": "error",
+                        "message": f"Video {video_id} not found in database",
+                    }
+                )
                 continue
 
             tiktok_url = result[0]
             print(f"📍 Found URL: {tiktok_url}")
 
             # Convert share URL to proper format
-            tiktok_url = tiktok_url.replace('tiktokv', 'tiktok').replace('share', '@')
+            tiktok_url = tiktok_url.replace("tiktokv", "tiktok").replace("share", "@")
             print(f"🔄 Converted URL: {tiktok_url}")
 
             # Get video metadata
@@ -519,7 +561,9 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
                 print(f"✅ Got video info!")
             except asyncio.TimeoutError:
                 print(f"❌ Timeout fetching video info after 30 seconds")
-                raise Exception("TikTok API timeout - possible auth or rate limit issue")
+                raise Exception(
+                    "TikTok API timeout - possible auth or rate limit issue"
+                )
 
             # Check if it's an image post - pawn off to image handler
             if "imagePost" in video_info:
@@ -528,13 +572,13 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
                 continue
 
             # Extract metadata
-            author = video_info.get('author', {})
-            title = video_info.get('music', {}).get('title', '')
-            uploader = author.get('uniqueId') or author.get('nickname', '')
-            uploader_id = author.get('uniqueId', '')
-            desc = video_info.get('desc', '')
-            create_time = int(video_info.get('createTime', 0))
-            duration = video_info.get('video', {}).get('duration', 0)
+            author = video_info.get("author", {})
+            title = video_info.get("music", {}).get("title", "")
+            uploader = author.get("uniqueId") or author.get("nickname", "")
+            uploader_id = author.get("uniqueId", "")
+            desc = video_info.get("desc", "")
+            create_time = int(video_info.get("createTime", 0))
+            duration = video_info.get("video", {}).get("duration", 0)
 
             # Download video bytes WITHOUT WATERMARK using new method
             print(f"📥 Downloading video without watermark...")
@@ -545,7 +589,9 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             try:
                 thumbnail_bytes = extract_video_thumbnail(video_bytes)
             except Exception as thumb_error:
-                print(f"⚠️  Warning: Could not generate thumbnail for {video_id}: {thumb_error}")
+                print(
+                    f"⚠️  Warning: Could not generate thumbnail for {video_id}: {thumb_error}"
+                )
                 thumbnail_bytes = None
 
             # Immediately transcribe video
@@ -553,24 +599,44 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             # _ = transcribe_video(video_id, video_bytes, whisper_model)
 
             # Update video_data table with metadata
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE video_data
                 SET title = ?, uploader = ?, uploader_id = ?, desc = ?,
                     create_time = ?, duration = ?, content_type = ?,
                     download_status = 1
                 WHERE id = ?
-            """, (title, uploader, uploader_id, desc, create_time, duration,
-                  "video", video_id))
+            """,
+                (
+                    title,
+                    uploader,
+                    uploader_id,
+                    desc,
+                    create_time,
+                    duration,
+                    "video",
+                    video_id,
+                ),
+            )
 
             # Insert video BLOB into videos table
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO videos (id, video_blob, date_downloaded, thumbnail_blob)
                 VALUES (?, ?, ?, ?)
-            """, (video_id, video_bytes, download_timestamp, thumbnail_bytes))
+            """,
+                (video_id, video_bytes, download_timestamp, thumbnail_bytes),
+            )
 
             conn.commit()
 
-            results.append({"status": "success", "video_id": video_id, "size_bytes": len(video_bytes)})
+            results.append(
+                {
+                    "status": "success",
+                    "video_id": video_id,
+                    "size_bytes": len(video_bytes),
+                }
+            )
 
         except Exception as e:
             error_str = str(e).lower()
@@ -580,17 +646,26 @@ async def download_video_and_store(video_ids, tiktok_api=None, whisper_model=Non
             cursor = conn.cursor()
 
             if "deleted" in error_str or "removed" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+                cursor.execute(
+                    "UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?",
+                    (video_id,),
+                )
                 conn.commit()
                 results.append({"status": "deleted", "message": str(e)})
 
             elif "private" in error_str or "unavailable" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+                cursor.execute(
+                    "UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?",
+                    (video_id,),
+                )
                 conn.commit()
                 results.append({"status": "private", "message": str(e)})
 
             else:
-                cursor.execute("UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,))
+                cursor.execute(
+                    "UPDATE video_data SET video_has_error = 1 WHERE id = ?",
+                    (video_id,),
+                )
                 conn.commit()
                 results.append({"status": "error", "message": str(e)})
         finally:
@@ -622,39 +697,42 @@ async def alt_video_download(video_id, tiktok_api, whisper_model):
         result = cursor.fetchone()
         if not result:
             conn.close()
-            return {"status": "error", "message": f"Video {video_id} not found in database"}
+            return {
+                "status": "error",
+                "message": f"Video {video_id} not found in database",
+            }
 
         tiktok_url = result[0]
 
         # Convert share URL to proper format
-        tiktok_url = tiktok_url.replace('tiktokv', 'tiktok').replace('share', '@')
+        tiktok_url = tiktok_url.replace("tiktokv", "tiktok").replace("share", "@")
 
         # Get video metadata
         video = tiktok_api.video(url=tiktok_url)
         video_info = await video.info()
 
         # Extract metadata
-        author = video_info.get('author', {})
-        title = video_info.get('music', {}).get('title', '')
-        uploader = author.get('uniqueId') or author.get('nickname', '')
-        uploader_id = author.get('uniqueId', '')
-        desc = video_info.get('desc', '')
-        create_time = int(video_info.get('createTime', 0))
-        duration = video_info.get('video', {}).get('duration', 0)
+        author = video_info.get("author", {})
+        title = video_info.get("music", {}).get("title", "")
+        uploader = author.get("uniqueId") or author.get("nickname", "")
+        uploader_id = author.get("uniqueId", "")
+        desc = video_info.get("desc", "")
+        create_time = int(video_info.get("createTime", 0))
+        duration = video_info.get("video", {}).get("duration", 0)
 
         # Try alternative download method using bitrate URLs
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'HX-Request': 'true',
-            'HX-Trigger': 'search-btn',
-            'HX-Target': 'tiktok-parse-result',
-            'HX-Current-URL': 'https://tiktokio.com/',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Origin': 'https://tiktokio.com',
-            'Connection': 'keep-alive',
-            'Referer': 'https://tiktokio.com/'
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.5",
+            "HX-Request": "true",
+            "HX-Trigger": "search-btn",
+            "HX-Target": "tiktok-parse-result",
+            "HX-Current-URL": "https://tiktokio.com/",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": "https://tiktokio.com",
+            "Connection": "keep-alive",
+            "Referer": "https://tiktokio.com/",
         }
 
         # Get alternative video URLs from bitrate info
@@ -669,7 +747,10 @@ async def alt_video_download(video_id, tiktok_api, whisper_model):
 
         if not video_bytes:
             conn.close()
-            return {"status": "error", "message": "No valid download URL found in bitrate info"}
+            return {
+                "status": "error",
+                "message": "No valid download URL found in bitrate info",
+            }
 
         download_timestamp = int(time.time())
 
@@ -677,50 +758,78 @@ async def alt_video_download(video_id, tiktok_api, whisper_model):
         try:
             thumbnail_bytes = extract_video_thumbnail(video_bytes)
         except Exception as thumb_error:
-            print(f"⚠️  Warning: Could not generate thumbnail for {video_id}: {thumb_error}")
+            print(
+                f"⚠️  Warning: Could not generate thumbnail for {video_id}: {thumb_error}"
+            )
             thumbnail_bytes = None
 
         # Transcribe video
         _ = transcribe_video(video_id, video_bytes, whisper_model)
 
         # Update video_data table with metadata and clear error flag
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE video_data
             SET title = ?, uploader = ?, uploader_id = ?, desc = ?,
                 create_time = ?, duration = ?, content_type = ?,
                 download_status = 1, video_has_error = 0
             WHERE id = ?
-        """, (title, uploader, uploader_id, desc, create_time, duration,
-              "video", video_id))
+        """,
+            (
+                title,
+                uploader,
+                uploader_id,
+                desc,
+                create_time,
+                duration,
+                "video",
+                video_id,
+            ),
+        )
 
         # Insert video BLOB into videos table
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO videos (id, video_blob, date_downloaded, thumbnail_blob)
             VALUES (?, ?, ?, ?)
-        """, (video_id, video_bytes, download_timestamp, thumbnail_bytes))
+        """,
+            (video_id, video_bytes, download_timestamp, thumbnail_bytes),
+        )
 
         conn.commit()
         conn.close()
 
-        return {"status": "success", "video_id": video_id, "size_bytes": len(video_bytes)}
+        return {
+            "status": "success",
+            "video_id": video_id,
+            "size_bytes": len(video_bytes),
+        }
 
     except Exception as e:
         error_str = str(e).lower()
 
         if "deleted" in error_str or "removed" in error_str:
-            cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+            cursor.execute(
+                "UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?",
+                (video_id,),
+            )
             conn.commit()
             conn.close()
             return {"status": "deleted", "message": str(e)}
 
         elif "private" in error_str or "unavailable" in error_str:
-            cursor.execute("UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+            cursor.execute(
+                "UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?",
+                (video_id,),
+            )
             conn.commit()
             conn.close()
             return {"status": "private", "message": str(e)}
 
         else:
-            cursor.execute("UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,))
+            cursor.execute(
+                "UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,)
+            )
             conn.commit()
             conn.close()
             return {"status": "error", "message": str(e)}
@@ -738,7 +847,6 @@ async def download_image_post(video_ids, tiktok_api=None):
         list of dicts with status and message for each video
     """
 
-
     results = []
 
     # Determine which API to use
@@ -747,7 +855,9 @@ async def download_image_post(video_ids, tiktok_api=None):
     else:
         ms_token = os.environ.get("ms_token", None)
         tt_api = TikTokApi()
-        await tt_api.create_sessions(ms_tokens=[ms_token], num_sessions=1, sleep_after=3)
+        await tt_api.create_sessions(
+            ms_tokens=[ms_token], num_sessions=1, sleep_after=3
+        )
 
     # Loop through all videos
     for video_id in video_ids:
@@ -756,17 +866,24 @@ async def download_image_post(video_ids, tiktok_api=None):
 
         try:
             # Get video URL from database
-            cursor.execute("SELECT tiktok_url FROM video_data WHERE id = ?", (video_id,))
+            cursor.execute(
+                "SELECT tiktok_url FROM video_data WHERE id = ?", (video_id,)
+            )
             result = cursor.fetchone()
             if not result:
                 conn.close()
-                results.append({"status": "error", "message": f"Video {video_id} not found in database"})
+                results.append(
+                    {
+                        "status": "error",
+                        "message": f"Video {video_id} not found in database",
+                    }
+                )
                 continue
 
             tiktok_url = result[0]
 
             # Convert share URL to proper format
-            tiktok_url = tiktok_url.replace('tiktokv', 'tiktok').replace('share', '@')
+            tiktok_url = tiktok_url.replace("tiktokv", "tiktok").replace("share", "@")
 
             # Get video metadata
             video = tt_api.video(url=tiktok_url)
@@ -775,16 +892,18 @@ async def download_image_post(video_ids, tiktok_api=None):
             # Check if it's actually an image post
             if "imagePost" not in video_info:
                 conn.close()
-                results.append({"status": "error", "message": "This is not an image post"})
+                results.append(
+                    {"status": "error", "message": "This is not an image post"}
+                )
                 continue
 
             # Extract metadata
-            author = video_info.get('author', {})
-            title = video_info.get('music', {}).get('title', '')
-            uploader = author.get('uniqueId') or author.get('nickname', '')
-            uploader_id = author.get('uniqueId', '')
-            desc = video_info.get('desc', '')
-            create_time = int(video_info.get('createTime', 0))
+            author = video_info.get("author", {})
+            title = video_info.get("music", {}).get("title", "")
+            uploader = author.get("uniqueId") or author.get("nickname", "")
+            uploader_id = author.get("uniqueId", "")
+            desc = video_info.get("desc", "")
+            create_time = int(video_info.get("createTime", 0))
 
             # Download images
             images = video_info["imagePost"]["images"]
@@ -797,7 +916,7 @@ async def download_image_post(video_ids, tiktok_api=None):
 
             # Create ZIP archive in memory
             zip_buffer = BytesIO()
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for index, image_bytes in enumerate(image_data):
                     zip_file.writestr(f"{index}.jpeg", image_bytes)
 
@@ -805,42 +924,63 @@ async def download_image_post(video_ids, tiktok_api=None):
             download_timestamp = int(time.time())
 
             # Update video_data table with metadata
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE video_data
                 SET title = ?, uploader = ?, uploader_id = ?, desc = ?,
                     create_time = ?, content_type = ?, download_status = 1
                 WHERE id = ?
-            """, (title, uploader, uploader_id, desc, create_time,
-                  "images", video_id))
+            """,
+                (title, uploader, uploader_id, desc, create_time, "images", video_id),
+            )
 
             # Insert ZIP BLOB into videos table (no thumbnail for image posts)
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO videos (id, video_blob, date_downloaded, thumbnail_blob)
                 VALUES (?, ?, ?, ?)
-            """, (video_id, zip_blob, download_timestamp, None))
+            """,
+                (video_id, zip_blob, download_timestamp, None),
+            )
 
             conn.commit()
             conn.close()
 
-            results.append({"status": "success", "video_id": video_id, "image_count": len(image_data), "size_bytes": len(zip_blob)})
+            results.append(
+                {
+                    "status": "success",
+                    "video_id": video_id,
+                    "image_count": len(image_data),
+                    "size_bytes": len(zip_blob),
+                }
+            )
 
         except Exception as e:
             error_str = str(e).lower()
 
             if "deleted" in error_str or "removed" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+                cursor.execute(
+                    "UPDATE video_data SET video_is_deleted = 1, video_has_error = 1 WHERE id = ?",
+                    (video_id,),
+                )
                 conn.commit()
                 conn.close()
                 results.append({"status": "deleted", "message": str(e)})
 
             elif "private" in error_str or "unavailable" in error_str:
-                cursor.execute("UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?", (video_id,))
+                cursor.execute(
+                    "UPDATE video_data SET video_is_private = 1, video_has_error = 1 WHERE id = ?",
+                    (video_id,),
+                )
                 conn.commit()
                 conn.close()
                 results.append({"status": "private", "message": str(e)})
 
             else:
-                cursor.execute("UPDATE video_data SET video_has_error = 1 WHERE id = ?", (video_id,))
+                cursor.execute(
+                    "UPDATE video_data SET video_has_error = 1 WHERE id = ?",
+                    (video_id,),
+                )
                 conn.commit()
                 conn.close()
                 results.append({"status": "error", "message": str(e)})
@@ -869,7 +1009,7 @@ def transcribe_video(video_id, bytes_stream, whisper_model=None):
         video_bytes = bytes_stream.read()
 
     # Write to temporary file
-    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_file:
         temp_file.write(video_bytes)
         temp_path = temp_file.name
 
@@ -903,12 +1043,15 @@ def transcribe_video(video_id, bytes_stream, whisper_model=None):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
                    UPDATE video_data
                    SET transcription        = ?,
                        transcription_status = 1
                    WHERE id = ?
-                   """, (transcription_text, video_id))
+                   """,
+        (transcription_text, video_id),
+    )
 
     conn.commit()
     conn.close()
@@ -949,7 +1092,7 @@ def ocr_images(video_id, bytes_stream, ocr_model=None):
     # Extract images from ZIP and perform OCR
     all_ocr_text = []
 
-    with zipfile.ZipFile(BytesIO(zip_bytes), 'r') as zip_file:
+    with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zip_file:
         # Sort filenames to maintain consistent order
         image_names = sorted(zip_file.namelist())
 
@@ -985,12 +1128,15 @@ def ocr_images(video_id, bytes_stream, ocr_model=None):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         UPDATE video_data
         SET ocr = ?,
             ocr_status = 1
         WHERE id = ?
-    """, (ocr_text, video_id))
+    """,
+        (ocr_text, video_id),
+    )
 
     conn.commit()
     conn.close()

@@ -2,6 +2,82 @@
 
 A Python utility for backing up your liked and bookmarked videos on TikTok. It will download the videos themselves as mp4 files, and associated metadata for each video as JSON.
 
+# Quick Start with Docker
+
+The easiest way to run this project is using Docker. This will start Redis, all Celery workers, and the web server with a single command.
+
+## Prerequisites
+
+- Docker and Docker Compose installed
+- A `.env` file (copy from `.env.example`)
+
+## Setup
+
+1. Copy the environment file and customize if needed:
+```bash
+cp .env.example .env
+```
+
+2. Build and start all services:
+```bash
+docker compose up --build
+```
+
+This will start:
+- Redis (port 6379)
+- Downloads worker (concurrency: 1)
+- Transcription worker (concurrency: 4)
+- OCR worker (concurrency: 4)
+- Web server (http://localhost:8000)
+
+All services will auto-restart if they crash. The database is stored in `./db/` and persists across restarts.
+
+## Configuration
+
+You can customize worker concurrency in your `.env` file:
+```
+DB_PATH=/app/data/tiktok_archive.db
+DOWNLOADS_CONCURRENCY=1
+TRANSCRIPTION_CONCURRENCY=4
+OCR_CONCURRENCY=4
+```
+
+## Using Existing Database
+
+If you have an existing database in `./db/`, set the path in your `.env`:
+```
+DB_PATH=/app/data/your_existing_db.db
+```
+
+### Important: Restarting After Config Changes
+
+If you change your `.env` file (like updating the database path), you **must** completely restart the containers:
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+**Do NOT use `docker compose restart`** - this keeps the old environment variables cached and won't pick up your changes!
+
+### Daily Usage Commands
+
+After the initial build, start/stop the app with:
+
+```bash
+# Start (background mode)
+docker compose up -d
+
+# Stop
+docker compose down
+
+# View logs
+docker compose logs -f
+
+# Check status
+docker compose ps
+```
+
 # Running the Project
 
 This project uses Redis (via Docker) and Celery for distributed task processing.
