@@ -12,6 +12,7 @@ let contentFilter = 'all'; // 'all', 'video', 'images', or 'none'
 let downloadFilter = 'downloaded'; // 'downloaded' or 'not_downloaded'
 let transcriptionFilter = 'all'; // 'all', 'transcribed', 'not_transcribed', 'both', or 'none'
 let ocrFilter = 'all'; // 'all', 'ocr', 'not_ocr', 'both', or 'none'
+let tagsFilter = 'all'; // 'all', 'tagged', 'untagged'
 let selectedTags = []; // Array of selected tag names for filtering (AND logic)
 let allTags = []; // Cache of all available tags
 let searchDebounceTimer = null; // For debouncing live search
@@ -44,6 +45,8 @@ const filterTranscriptionAll = document.getElementById('filter-transcription-all
 const filterOcr = document.getElementById('filter-ocr');
 const filterNotOcr = document.getElementById('filter-not-ocr');
 const filterOcrAll = document.getElementById('filter-ocr-all');
+const filterAllVideos = document.getElementById('filter-all-videos');
+const filterUntagged = document.getElementById('filter-untagged');
 const typeFilterRow = document.getElementById('type-filter-block');
 const transcriptionFilterRow = document.getElementById('transcription-filter-block');
 const ocrFilterRow = document.getElementById('ocr-filter-block');
@@ -220,6 +223,23 @@ async function init() {
     
     if (filterOcrAll) {
         filterOcrAll.addEventListener('change', () => {
+            updateAllFilters();
+            currentPage = 1;
+            loadVideos(1);
+        });
+    }
+    
+    // Untagged filter radio buttons
+    if (filterUntagged) {
+        filterUntagged.addEventListener('change', () => {
+            updateAllFilters();
+            currentPage = 1;
+            loadVideos(1);
+        });
+    }
+    
+    if (filterAllVideos) {
+        filterAllVideos.addEventListener('change', () => {
             updateAllFilters();
             currentPage = 1;
             loadVideos(1);
@@ -429,6 +449,7 @@ function updateAllFilters() {
         contentFilter = 'all';
         transcriptionFilter = 'all';
         ocrFilter = 'all';
+        tagsFilter = 'all';
         return; // Exit early since other filters are disabled
     }
     
@@ -462,6 +483,13 @@ function updateAllFilters() {
         ocrFilter = 'not_ocr';
     } else {
         ocrFilter = 'all';
+    }
+    
+    // Tags filter - based on radio buttons (only when in downloaded mode)
+    if (filterUntagged && filterUntagged.checked) {
+        tagsFilter = 'untagged';
+    } else {
+        tagsFilter = 'all';
     }
 }
 
@@ -500,6 +528,11 @@ async function loadVideos(page = 1) {
             // Add OCR filter if not 'all'
             if (ocrFilter && ocrFilter !== 'all') {
                 url += `&ocr_status=${ocrFilter}`;
+            }
+            
+            // Add tags filter if not 'all'
+            if (tagsFilter && tagsFilter !== 'all') {
+                url += `&tags_status=${tagsFilter}`;
             }
             
             // Add tag filters if any selected (AND logic - video must have ALL selected tags)
@@ -647,6 +680,19 @@ function createVideoCard(video) {
                 if (successCount > 0) {
                     // Refresh the sidebar tags
                     await loadAllTags();
+                    
+                    // If viewing untagged videos, remove this video from the grid
+                    if (tagsFilter === 'untagged') {
+                        const videoCard = document.querySelector(`.video-card[data-video-id="${video.id}"]`);
+                        if (videoCard) {
+                            videoCard.remove();
+                            
+                            // Check if grid is now empty
+                            if (videoGrid.children.length === 0) {
+                                showNoResults();
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -853,6 +899,21 @@ async function openVideoModal(videoId) {
                     }
                     await loadVideoTags(videoId);
                     await loadAllTags();
+                    
+                    // If viewing untagged videos, remove this video from the grid
+                    if (tagsFilter === 'untagged') {
+                        const videoCard = document.querySelector(`.video-card[data-video-id="${videoId}"]`);
+                        if (videoCard) {
+                            videoCard.remove();
+                            
+                            // Check if grid is now empty
+                            if (videoGrid.children.length === 0) {
+                                showNoResults();
+                            }
+                        }
+                        // Close the modal since the video is no longer visible
+                        closeModal();
+                    }
                 }
                 modalTagInput.value = '';
                 modalTagInputContainer.classList.add('hidden');

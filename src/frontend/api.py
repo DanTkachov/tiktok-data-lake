@@ -129,6 +129,9 @@ async def get_videos(
     ocr_status: Optional[str] = Query(
         None, description="Filter by OCR: 'ocr' or 'not_ocr'"
     ),
+    tags_status: Optional[str] = Query(
+        None, description="Filter by tag status: 'tagged' or 'untagged'"
+    ),
     tags: Optional[List[str]] = Query(
         None,
         description="Filter by tags (AND logic - video must have ALL selected tags)",
@@ -176,6 +179,13 @@ async def get_videos(
                 where_clause += " AND v.ocr_status = 1"
             elif ocr_status == "not_ocr":
                 where_clause += " AND v.ocr_status = 0"
+
+        # Tags status filter (tagged/untagged)
+        if tags_status:
+            if tags_status == "tagged":
+                where_clause += " AND v.id IN (SELECT DISTINCT video_id FROM tags WHERE manual_tag IS NOT NULL)"
+            elif tags_status == "untagged":
+                where_clause += " AND v.id NOT IN (SELECT DISTINCT video_id FROM tags WHERE manual_tag IS NOT NULL)"
 
         # Tags filter (AND logic - video must have ALL specified tags)
         if tags:

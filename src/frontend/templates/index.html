@@ -119,7 +119,7 @@
                             <div class="filter-header">Transcription</div>
                             <div class="filter-options">
                                 <label class="filter-radio-label">
-                                    <input type="radio" name="transcription-status" id="filter-transcribed" value="transcribed" checked>
+                                    <input type="radio" name="transcription-status" id="filter-transcribed" value="transcribed">
                                     <span>Transcribed</span>
                                 </label>
                                 <label class="filter-radio-label">
@@ -127,18 +127,18 @@
                                     <span>Not Transcribed</span>
                                 </label>
                                 <label class="filter-radio-label">
-                                    <input type="radio" name="transcription-status" id="filter-transcription-all" value="all">
+                                    <input type="radio" name="transcription-status" id="filter-transcription-all" value="all" checked>
                                     <span>Both</span>
                                 </label>
                             </div>
                         </div>
-                        
+
                         <!-- OCR Filter -->
                         <div class="filter-block" id="ocr-filter-block">
                             <div class="filter-header">OCR</div>
                             <div class="filter-options">
                                 <label class="filter-radio-label">
-                                    <input type="radio" name="ocr-status" id="filter-ocr" value="ocr" checked>
+                                    <input type="radio" name="ocr-status" id="filter-ocr" value="ocr">
                                     <span>OCR'd</span>
                                 </label>
                                 <label class="filter-radio-label">
@@ -146,7 +146,7 @@
                                     <span>Not OCR'd</span>
                                 </label>
                                 <label class="filter-radio-label">
-                                    <input type="radio" name="ocr-status" id="filter-ocr-all" value="all">
+                                    <input type="radio" name="ocr-status" id="filter-ocr-all" value="all" checked>
                                     <span>Both</span>
                                 </label>
                             </div>
@@ -163,6 +163,19 @@
                         </button>
                     </div>
                     <div id="tags-content" class="collapsible-content">
+                        <!-- Untagged Toggle -->
+                        <div class="filter-block" id="untagged-filter-block">
+                            <div class="filter-options">
+                                <label class="filter-radio-label">
+                                    <input type="radio" name="tags-status" id="filter-all-videos" value="all" checked>
+                                    <span>All Videos</span>
+                                </label>
+                                <label class="filter-radio-label">
+                                    <input type="radio" name="tags-status" id="filter-untagged" value="untagged">
+                                    <span>Untagged Only</span>
+                                </label>
+                            </div>
+                        </div>
                         <div class="filter-options" id="user-tags-list">
                             <p class="tags-loading">Loading tags...</p>
                         </div>
