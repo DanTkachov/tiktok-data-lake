@@ -162,11 +162,15 @@ header h1 {
 }
 
 .sidebar-section {
-    margin-bottom: 24px;
+    margin-bottom: 12px;
 }
 
 .sidebar-section:last-child {
     margin-bottom: 0;
+}
+
+.sidebar-section:has(.collapsible-content.collapsed) {
+    margin-bottom: 4px;
 }
 
 /* Collapsible Sidebar Sections */
