@@ -17,6 +17,8 @@ let selectedTags = []; // Array of selected tag names for filtering (AND logic)
 let tagsMode = 'and'; // 'and' or 'or'
 let allTags = []; // Cache of all available tags
 let searchDebounceTimer = null; // For debouncing live search
+let gridColumns = 5; // Number of columns in video grid
+let gridRows = 5; // Number of rows per page
 
 // DOM Elements
 const videoGrid = document.getElementById('video-grid');
@@ -65,7 +67,6 @@ const tagsActions = document.getElementById('tags-actions');
 const tagsClearBtn = document.getElementById('tags-clear');
 const tagModeAnd = document.getElementById('tag-mode-and');
 const tagModeOr = document.getElementById('tag-mode-or');
-const tagModeBlock = document.getElementById('tag-mode-block');
 
 // Modal elements
 const modal = document.getElementById('video-modal');
@@ -94,6 +95,7 @@ const modalTagInput = document.getElementById('modal-tag-input');
 const SIDEBAR_COLLAPSE_KEY = 'tiktok_lake_sidebar_collapse';
 const TAGS_MODE_KEY = 'tiktok_lake_tags_mode';
 const TAGS_STATUS_KEY = 'tiktok_lake_tags_status';
+const GRID_LAYOUT_KEY = 'tiktok_lake_grid_layout';
 
 function loadSidebarCollapseState() {
     try {
@@ -176,6 +178,46 @@ function saveTagsStatus(status) {
     }
 }
 
+function loadGridLayout() {
+    try {
+        const saved = localStorage.getItem(GRID_LAYOUT_KEY);
+        if (saved) {
+            const layout = JSON.parse(saved);
+            gridColumns = layout.columns || 5;
+            gridRows = layout.rows || 5;
+        }
+        
+        // Update sliders
+        const columnsSlider = document.getElementById('columns-slider');
+        const rowsSlider = document.getElementById('rows-slider');
+        const columnsValue = document.getElementById('columns-value');
+        const rowsValue = document.getElementById('rows-value');
+        const videosPerPage = document.getElementById('videos-per-page');
+        
+        if (columnsSlider) columnsSlider.value = gridColumns;
+        if (rowsSlider) rowsSlider.value = gridRows;
+        if (columnsValue) columnsValue.textContent = gridColumns;
+        if (rowsValue) rowsValue.textContent = gridRows;
+        if (videosPerPage) videosPerPage.textContent = gridColumns * gridRows;
+        
+        // Apply to CSS
+        document.documentElement.style.setProperty('--grid-columns', gridColumns);
+    } catch (e) {
+        console.error('Error loading grid layout:', e);
+    }
+}
+
+function saveGridLayout() {
+    try {
+        localStorage.setItem(GRID_LAYOUT_KEY, JSON.stringify({
+            columns: gridColumns,
+            rows: gridRows
+        }));
+    } catch (e) {
+        console.error('Error saving grid layout:', e);
+    }
+}
+
 function setupCollapsibleSections() {
     const collapseBtns = document.querySelectorAll('.collapse-btn, .collapse-btn-small');
     
@@ -208,6 +250,7 @@ async function init() {
     loadSidebarCollapseState();
     loadTagsMode();
     loadTagsStatus();
+    loadGridLayout();
     setupCollapsibleSections();
     updateAllFiltersUi();
     
@@ -709,13 +752,11 @@ function updateAllFiltersUi() {
         // Disable specific tag selection when filtering for untagged videos
         if (userTagsList) userTagsList.classList.add('disabled-section');
         if (tagsActions) tagsActions.classList.add('disabled-section');
-        if (tagModeBlock) tagModeBlock.classList.add('disabled');
     } else {
         tagsFilter = 'all';
         // Enable tag selection
         if (userTagsList) userTagsList.classList.remove('disabled-section');
         if (tagsActions) tagsActions.classList.remove('disabled-section');
-        if (tagModeBlock) tagModeBlock.classList.remove('disabled');
     }
 }
 
@@ -728,12 +769,14 @@ function formatNumber(num) {
 async function loadVideos(page = 1) {
     showLoading();
     
+    const limit = gridColumns * gridRows;
+    
     try {
         let url;
         if (isSearching && currentQuery) {
-            url = `/api/search?q=${encodeURIComponent(currentQuery)}&page=${page}&limit=250`;
+            url = `/api/search?q=${encodeURIComponent(currentQuery)}&page=${page}&limit=${limit}`;
         } else {
-            url = `/api/videos?page=${page}&limit=250`;
+            url = `/api/videos?page=${page}&limit=${limit}`;
         }
         
         // Add download filter (always either 'downloaded' or 'not_downloaded')
@@ -1843,6 +1886,37 @@ function setupSettingsModal() {
             closeSettingsModal();
         }
     });
+    
+    // Grid layout sliders
+    const columnsSlider = document.getElementById('columns-slider');
+    const rowsSlider = document.getElementById('rows-slider');
+    const columnsValue = document.getElementById('columns-value');
+    const rowsValue = document.getElementById('rows-value');
+    const videosPerPage = document.getElementById('videos-per-page');
+    
+    const updateGridLayout = () => {
+        gridColumns = parseInt(columnsSlider.value);
+        gridRows = parseInt(rowsSlider.value);
+        
+        columnsValue.textContent = gridColumns;
+        rowsValue.textContent = gridRows;
+        videosPerPage.textContent = gridColumns * gridRows;
+        
+        document.documentElement.style.setProperty('--grid-columns', gridColumns);
+        saveGridLayout();
+        
+        // Reload videos with new limit
+        currentPage = 1;
+        loadVideos(1);
+    };
+    
+    if (columnsSlider) {
+        columnsSlider.addEventListener('input', updateGridLayout);
+    }
+    
+    if (rowsSlider) {
+        rowsSlider.addEventListener('input', updateGridLayout);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', setupSettingsModal);

@@ -193,20 +193,6 @@
                                 </label>
                             </div>
                         </div>
-                        <!-- Tag Mode Toggle (AND/OR) -->
-                        <div class="filter-block" id="tag-mode-block">
-                            <div class="filter-header">Tag Mode</div>
-                            <div class="filter-options">
-                                <label class="filter-radio-label">
-                                    <input type="radio" name="tag-mode" id="tag-mode-and" value="and" checked>
-                                    <span>AND (all tags)</span>
-                                </label>
-                                <label class="filter-radio-label">
-                                    <input type="radio" name="tag-mode" id="tag-mode-or" value="or">
-                                    <span>OR (any tag)</span>
-                                </label>
-                            </div>
-                        </div>
                         <div class="filter-actions" id="tags-actions">
                             <button class="filter-action-btn" id="tags-clear">Unselect All</button>
                         </div>
@@ -366,8 +352,31 @@
             <div class="settings-modal-body">
                 <h2>Settings</h2>
                 <div class="settings-section">
-                    <h3>Preferences</h3>
-                    <p class="settings-subtitle">Settings will be added here in future updates.</p>
+                    <h3>Grid Layout</h3>
+                    <div class="settings-slider-group">
+                        <label class="settings-slider-label">
+                            <span>Columns: <strong id="columns-value">5</strong></span>
+                            <input type="range" id="columns-slider" min="5" max="10" value="5" class="settings-slider">
+                        </label>
+                        <label class="settings-slider-label">
+                            <span>Rows: <strong id="rows-value">5</strong></span>
+                            <input type="range" id="rows-slider" min="3" max="10" value="5" class="settings-slider">
+                        </label>
+                        <p class="settings-hint">Videos per page: <span id="videos-per-page">25</span></p>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Tag Mode</h3>
+                    <div class="filter-options">
+                        <label class="filter-radio-label">
+                            <input type="radio" name="tag-mode" id="tag-mode-and" value="and" checked>
+                            <span>AND (all tags)</span>
+                        </label>
+                        <label class="filter-radio-label">
+                            <input type="radio" name="tag-mode" id="tag-mode-or" value="or">
+                            <span>OR (any tag)</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
