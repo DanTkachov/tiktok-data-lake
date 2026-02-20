@@ -21,12 +21,16 @@ let searchDebounceTimer = null; // For debouncing live search
 const videoGrid = document.getElementById('video-grid');
 const loadingEl = document.getElementById('loading');
 const noResultsEl = document.getElementById('no-results');
-const paginationEl = document.getElementById('pagination');
+const paginationTopEl = document.getElementById('pagination-top');
+const paginationBottomEl = document.getElementById('pagination-bottom');
 const searchInput = document.getElementById('search-input');
 const searchBtn = document.getElementById('search-btn');
-const prevBtn = document.getElementById('prev-btn');
-const nextBtn = document.getElementById('next-btn');
-const pageInfo = document.getElementById('page-info');
+const prevBtnTop = document.getElementById('prev-btn-top');
+const nextBtnTop = document.getElementById('next-btn-top');
+const prevBtnBottom = document.getElementById('prev-btn-bottom');
+const nextBtnBottom = document.getElementById('next-btn-bottom');
+const pageNumbersTop = document.getElementById('page-numbers-top');
+const pageNumbersBottom = document.getElementById('page-numbers-bottom');
 
 // Stats elements
 const statTotal = document.getElementById('stat-total');
@@ -140,14 +144,16 @@ async function init() {
         }, 50);
     });
     
-    prevBtn.addEventListener('click', () => changePage(currentPage - 1));
-    nextBtn.addEventListener('click', () => changePage(currentPage + 1));
+    prevBtnTop.addEventListener('click', () => changePage(currentPage - 1));
+    nextBtnTop.addEventListener('click', () => changePage(currentPage + 1));
+    prevBtnBottom.addEventListener('click', () => changePage(currentPage - 1));
+    nextBtnBottom.addEventListener('click', () => changePage(currentPage + 1));
     
     // Download mode radio buttons
     if (modeDownloaded) {
         modeDownloaded.addEventListener('change', () => {
             updateFilterAvailability();
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -156,7 +162,7 @@ async function init() {
     if (modeNotDownloaded) {
         modeNotDownloaded.addEventListener('change', () => {
             updateFilterAvailability();
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -165,7 +171,7 @@ async function init() {
     // Content type filters
     if (filterVideos) {
         filterVideos.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -173,7 +179,7 @@ async function init() {
     
     if (filterImages) {
         filterImages.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -182,7 +188,7 @@ async function init() {
     // Transcription filter radio buttons
     if (filterTranscribed) {
         filterTranscribed.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -190,7 +196,7 @@ async function init() {
     
     if (filterNotTranscribed) {
         filterNotTranscribed.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -198,7 +204,7 @@ async function init() {
     
     if (filterTranscriptionAll) {
         filterTranscriptionAll.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -207,7 +213,7 @@ async function init() {
     // OCR filter radio buttons
     if (filterOcr) {
         filterOcr.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -215,7 +221,7 @@ async function init() {
     
     if (filterNotOcr) {
         filterNotOcr.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -223,7 +229,7 @@ async function init() {
     
     if (filterOcrAll) {
         filterOcrAll.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -232,7 +238,7 @@ async function init() {
     // Untagged filter radio buttons
     if (filterUntagged) {
         filterUntagged.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -240,7 +246,7 @@ async function init() {
     
     if (filterAllVideos) {
         filterAllVideos.addEventListener('change', () => {
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -251,7 +257,7 @@ async function init() {
         typeSelectAllBtn.addEventListener('click', () => {
             if (filterVideos) filterVideos.checked = true;
             if (filterImages) filterImages.checked = true;
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -261,7 +267,7 @@ async function init() {
         typeDeselectAllBtn.addEventListener('click', () => {
             if (filterVideos) filterVideos.checked = false;
             if (filterImages) filterImages.checked = false;
-            updateAllFilters();
+            updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
         });
@@ -307,6 +313,109 @@ async function loadStats() {
     } catch (error) {
         console.error('Error loading stats:', error);
     }
+}
+
+// Tag Autocomplete Functions
+function createTagAutocomplete(input, videoId, onTagSelected) {
+    // Create dropdown container
+    const dropdown = document.createElement('div');
+    dropdown.className = 'tag-autocomplete-dropdown hidden';
+    
+    // Track if dropdown is being interacted with
+    let isDropdownHovered = false;
+    
+    dropdown.addEventListener('mouseenter', () => {
+        isDropdownHovered = true;
+    });
+    
+    dropdown.addEventListener('mouseleave', () => {
+        isDropdownHovered = false;
+    });
+
+    // Helper to position and show dropdown
+    const updatePosition = () => {
+        const rect = input.getBoundingClientRect();
+        dropdown.style.top = `${rect.bottom + window.scrollY}px`;
+        dropdown.style.left = `${rect.left + window.scrollX}px`;
+        dropdown.style.width = `${rect.width}px`;
+        // Ensure z-index is high enough to float above modal (1000)
+        dropdown.style.zIndex = '10001'; 
+        dropdown.style.position = 'absolute';
+    };
+
+    const showDropdown = () => {
+        document.body.appendChild(dropdown);
+        updatePosition();
+        dropdown.classList.remove('hidden');
+    };
+
+    const hideDropdown = () => {
+        dropdown.classList.add('hidden');
+        if (dropdown.parentNode) {
+            dropdown.parentNode.removeChild(dropdown);
+        }
+    };
+    
+    // Handle input changes
+    input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        
+        if (query.length === 0) {
+            hideDropdown();
+            return;
+        }
+        
+        // Filter manual tags (case insensitive, match anywhere)
+        // Sort by count descending to show most popular tags first
+        const matches = allTags
+            .filter(tag => tag.type === 'manual' && tag.tag.toLowerCase().includes(query))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5); // Max 5 suggestions
+        
+        if (matches.length === 0) {
+            hideDropdown();
+            return;
+        }
+        
+        // Render suggestions
+        dropdown.innerHTML = matches.map(tagObj => 
+            `<div class="tag-suggestion" data-tag="${escapeHtml(tagObj.tag)}">${escapeHtml(tagObj.tag)}</div>`
+        ).join('');
+        
+        showDropdown();
+        
+        // Add click handlers to suggestions
+        dropdown.querySelectorAll('.tag-suggestion').forEach(suggestion => {
+            suggestion.addEventListener('click', async () => {
+                const selectedTag = suggestion.dataset.tag;
+                await onTagSelected(selectedTag);
+                hideDropdown();
+                input.value = '';
+            });
+        });
+    });
+    
+    // Hide dropdown on blur (unless hovering dropdown)
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (!isDropdownHovered) {
+                hideDropdown();
+            }
+        }, 200);
+    });
+    
+    // Hide dropdown on Escape
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            hideDropdown();
+        }
+    });
+    
+    // Update position on scroll/resize if visible
+    // Note: This is a simple implementation, ideally we'd remove listeners on destroy
+    // but since we don't have a clear destroy hook, we'll rely on hideDropdown being called on blur/escape
+    
+    return dropdown;
 }
 
 // Load all tags from the database
@@ -427,8 +536,8 @@ function updateFilterAvailability() {
     }
 }
 
-// Update all filter states
-function updateAllFilters() {
+// Update all filter states and UI
+function updateAllFiltersUi() {
     // Download status filter - based on radio buttons
     if (modeDownloaded && modeDownloaded.checked) {
         downloadFilter = 'downloaded';
@@ -488,8 +597,14 @@ function updateAllFilters() {
     // Tags filter - based on radio buttons (only when in downloaded mode)
     if (filterUntagged && filterUntagged.checked) {
         tagsFilter = 'untagged';
+        // Disable specific tag selection when filtering for untagged videos
+        if (userTagsList) userTagsList.classList.add('disabled-section');
+        if (tagsActions) tagsActions.classList.add('disabled-section');
     } else {
         tagsFilter = 'all';
+        // Enable tag selection
+        if (userTagsList) userTagsList.classList.remove('disabled-section');
+        if (tagsActions) tagsActions.classList.remove('disabled-section');
     }
 }
 
@@ -585,6 +700,9 @@ async function loadVideos(page = 1) {
 
 // Render video cards
 function renderVideos(videos) {
+    // Clean up any stale tag autocomplete dropdowns
+    document.querySelectorAll('.tag-autocomplete-dropdown').forEach(el => el.remove());
+
     videoGrid.innerHTML = '';
     
     videos.forEach(video => {
@@ -659,48 +777,70 @@ function createVideoCard(video) {
         tagInput.focus();
     });
     
-    // Handle blur event (clicking away) to submit tags
-    tagInput.addEventListener('blur', async () => {
-        const tagsText = tagInput.value.trim();
-        
-        if (tagsText) {
-            // Split by comma and trim each tag
-            const tags = tagsText.split(',').map(tag => tag.trim()).filter(tag => tag);
+    // Setup autocomplete for this tag input
+    createTagAutocomplete(tagInput, video.id, async (selectedTag) => {
+        const result = await addTagToVideo(video.id, selectedTag);
+        if (result.status === 'success') {
+            await loadAllTags();
             
-            if (tags.length > 0) {
-                // Add each tag
-                let successCount = 0;
-                for (const tag of tags) {
-                    const result = await addTagToVideo(video.id, tag);
-                    if (result.status === 'success') {
-                        successCount++;
+            // If viewing untagged videos, remove this video from the grid
+            if (tagsFilter === 'untagged') {
+                const videoCard = document.querySelector(`.video-card[data-video-id="${video.id}"]`);
+                if (videoCard) {
+                    videoCard.remove();
+                    if (videoGrid.children.length === 0) {
+                        showNoResults();
                     }
                 }
+            }
+        }
+    });
+    
+    // Handle blur event (clicking away) to submit tags
+    tagInput.addEventListener('blur', async () => {
+        // Wait a bit to allow autocomplete click to process
+        setTimeout(async () => {
+            const tagsText = tagInput.value.trim();
+            
+            if (tagsText) {
+                // Split by comma and trim each tag
+                const tags = tagsText.split(',').map(tag => tag.trim()).filter(tag => tag);
                 
-                if (successCount > 0) {
-                    // Refresh the sidebar tags
-                    await loadAllTags();
+                if (tags.length > 0) {
+                    // Add each tag
+                    let successCount = 0;
+                    for (const tag of tags) {
+                        const result = await addTagToVideo(video.id, tag);
+                        if (result.status === 'success') {
+                            successCount++;
+                        }
+                    }
                     
-                    // If viewing untagged videos, remove this video from the grid
-                    if (tagsFilter === 'untagged') {
-                        const videoCard = document.querySelector(`.video-card[data-video-id="${video.id}"]`);
-                        if (videoCard) {
-                            videoCard.remove();
-                            
-                            // Check if grid is now empty
-                            if (videoGrid.children.length === 0) {
-                                showNoResults();
+                    if (successCount > 0) {
+                        // Refresh the sidebar tags
+                        await loadAllTags();
+                        
+                        // If viewing untagged videos, remove this video from the grid
+                        if (tagsFilter === 'untagged') {
+                            const videoCard = document.querySelector(`.video-card[data-video-id="${video.id}"]`);
+                            if (videoCard) {
+                                videoCard.remove();
+                                
+                                // Check if grid is now empty
+                                if (videoGrid.children.length === 0) {
+                                    showNoResults();
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        
-        // Reset the input
-        tagInput.value = '';
-        tagInputContainer.classList.add('hidden');
-        addTagBtn.classList.remove('hidden');
+            
+            // Reset the input
+            tagInput.value = '';
+            tagInputContainer.classList.add('hidden');
+            addTagBtn.classList.remove('hidden');
+        }, 300);
     });
     
     // Handle Enter key to submit immediately
@@ -713,19 +853,77 @@ function createVideoCard(video) {
     return card;
 }
 
+// Generate page number buttons (show up to 10 pages at a time)
+function generatePageNumbers(current, total) {
+    let html = '';
+    
+    // Calculate range of pages to show
+    let startPage = Math.max(1, current - 4);
+    let endPage = Math.min(total, startPage + 9);
+    
+    // Adjust if we're near the end
+    if (endPage - startPage < 9) {
+        startPage = Math.max(1, endPage - 9);
+    }
+    
+    // Add first page + ellipsis if needed
+    if (startPage > 1) {
+        html += `<button class="page-number" data-page="1">1</button>`;
+        if (startPage > 2) {
+            html += `<span class="page-ellipsis">...</span>`;
+        }
+    }
+    
+    // Add page numbers
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === current) {
+            html += `<button class="page-number active" data-page="${i}">${i}</button>`;
+        } else {
+            html += `<button class="page-number" data-page="${i}">${i}</button>`;
+        }
+    }
+    
+    // Add last page + ellipsis if needed
+    if (endPage < total) {
+        if (endPage < total - 1) {
+            html += `<span class="page-ellipsis">...</span>`;
+        }
+        html += `<button class="page-number" data-page="${total}">${total}</button>`;
+    }
+    
+    return html;
+}
+
 // Update pagination controls
 function updatePagination(pagination) {
     currentPage = pagination.page;
     
-    pageInfo.textContent = `Page ${pagination.page} of ${pagination.total_pages} (${pagination.total} videos)`;
-    
-    prevBtn.disabled = !pagination.has_prev;
-    nextBtn.disabled = !pagination.has_next;
-    
+    // Update both pagination controls
     if (pagination.total_pages > 1) {
-        paginationEl.classList.remove('hidden');
+        paginationTopEl.classList.remove('hidden');
+        paginationBottomEl.classList.remove('hidden');
+        
+        // Update prev/next buttons
+        prevBtnTop.disabled = !pagination.has_prev;
+        nextBtnTop.disabled = !pagination.has_next;
+        prevBtnBottom.disabled = !pagination.has_prev;
+        nextBtnBottom.disabled = !pagination.has_next;
+        
+        // Generate page numbers
+        const pageNumbersHtml = generatePageNumbers(pagination.page, pagination.total_pages);
+        pageNumbersTop.innerHTML = pageNumbersHtml;
+        pageNumbersBottom.innerHTML = pageNumbersHtml;
+        
+        // Add click handlers to page number buttons
+        document.querySelectorAll('.page-number').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const page = parseInt(e.target.dataset.page);
+                changePage(page);
+            });
+        });
     } else {
-        paginationEl.classList.add('hidden');
+        paginationTopEl.classList.add('hidden');
+        paginationBottomEl.classList.add('hidden');
     }
 }
 
@@ -747,6 +945,24 @@ async function addTagToVideo(videoId, tag) {
     }
 }
 
+// Remove a tag from a video
+async function removeTagFromVideo(videoId, tag) {
+    try {
+        const response = await fetch(`/api/videos/${videoId}/tags?tag=${encodeURIComponent(tag)}`, {
+            method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to remove tag: ${response.statusText}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error removing tag:', error);
+        return { status: 'error', message: error.message };
+    }
+}
+
 // Load and display tags for a specific video in the modal
 async function loadVideoTags(videoId) {
     if (!modalTagsList) return;
@@ -761,16 +977,60 @@ async function loadVideoTags(videoId) {
         const data = await response.json();
         
         if (data.status === 'success') {
-            const allVideoTags = [...data.manual_tags, ...data.automatic_tags.map(t => t.tag)];
+            const manualTags = data.manual_tags || [];
+            const automaticTags = (data.automatic_tags || []).map(t => t.tag);
+            const allVideoTags = [...manualTags, ...automaticTags];
             
             if (allVideoTags.length === 0) {
                 // Show "None" in red box when no tags
                 modalTagsList.innerHTML = '<span class="no-tags-badge">None</span>';
             } else {
                 // Display tags as badges
-                modalTagsList.innerHTML = allVideoTags.map(tag => 
-                    `<span class="video-tag-badge">${escapeHtml(tag)}</span>`
+                // Manual tags get a remove button
+                const manualTagsHtml = manualTags.map(tag => 
+                    `<span class="video-tag-badge manual-tag">
+                        ${escapeHtml(tag)}
+                        <span class="remove-tag-btn" data-tag="${escapeHtml(tag)}">×</span>
+                    </span>`
                 ).join('');
+                
+                // Automatic tags are read-only
+                const autoTagsHtml = automaticTags.map(tag => 
+                    `<span class="video-tag-badge auto-tag" title="Automatic tag">${escapeHtml(tag)}</span>`
+                ).join('');
+                
+                modalTagsList.innerHTML = manualTagsHtml + autoTagsHtml;
+                
+                // Add event listeners to remove buttons
+                const removeBtns = modalTagsList.querySelectorAll('.remove-tag-btn');
+                removeBtns.forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        // Get tag from the closest badge in case of structure changes, though data-tag is safer
+                        // However, we set data-tag on the btn itself above
+                        const tag = btn.getAttribute('data-tag');
+                        
+                        if (confirm(`Remove tag "${tag}"?`)) {
+                            // Show loading state
+                            btn.textContent = '...';
+                            
+                            const result = await removeTagFromVideo(videoId, tag);
+                            
+                            if (result.status === 'success') {
+                                await loadVideoTags(videoId);
+                                await loadAllTags();
+                                
+                                // If filtering by tags, refresh grid
+                                if (selectedTags.length > 0 || tagsFilter !== 'all') {
+                                    await loadVideos(currentPage);
+                                }
+                            } else {
+                                alert('Failed to remove tag: ' + result.message);
+                                btn.textContent = '×'; // Reset on error
+                            }
+                        }
+                    });
+                });
             }
         } else {
             modalTagsList.innerHTML = '<span class="no-tags-badge">None</span>';
@@ -889,35 +1149,58 @@ async function openVideoModal(videoId) {
                 modalTagInput.focus();
             };
             
+            // Setup autocomplete for modal tag input
+            createTagAutocomplete(modalTagInput, videoId, async (selectedTag) => {
+                await addTagToVideo(videoId, selectedTag);
+                await loadVideoTags(videoId);
+                await loadAllTags();
+                
+                // If viewing untagged videos, remove this video from the grid
+                if (tagsFilter === 'untagged') {
+                    const videoCard = document.querySelector(`.video-card[data-video-id="${videoId}"]`);
+                    if (videoCard) {
+                        videoCard.remove();
+                        if (videoGrid.children.length === 0) {
+                            showNoResults();
+                        }
+                    }
+                    // Close the modal since the video is no longer visible
+                    closeModal();
+                }
+            });
+            
             // Handle tag submission
             const handleTagSubmit = async () => {
-                const value = modalTagInput.value.trim();
-                if (value) {
-                    const tags = value.split(',').map(t => t.trim()).filter(t => t);
-                    for (const tag of tags) {
-                        await addTagToVideo(videoId, tag);
-                    }
-                    await loadVideoTags(videoId);
-                    await loadAllTags();
-                    
-                    // If viewing untagged videos, remove this video from the grid
-                    if (tagsFilter === 'untagged') {
-                        const videoCard = document.querySelector(`.video-card[data-video-id="${videoId}"]`);
-                        if (videoCard) {
-                            videoCard.remove();
-                            
-                            // Check if grid is now empty
-                            if (videoGrid.children.length === 0) {
-                                showNoResults();
-                            }
+                // Wait a bit to allow autocomplete click to process
+                setTimeout(async () => {
+                    const value = modalTagInput.value.trim();
+                    if (value) {
+                        const tags = value.split(',').map(t => t.trim()).filter(t => t);
+                        for (const tag of tags) {
+                            await addTagToVideo(videoId, tag);
                         }
-                        // Close the modal since the video is no longer visible
-                        closeModal();
+                        await loadVideoTags(videoId);
+                        await loadAllTags();
+                        
+                        // If viewing untagged videos, remove this video from the grid
+                        if (tagsFilter === 'untagged') {
+                            const videoCard = document.querySelector(`.video-card[data-video-id="${videoId}"]`);
+                            if (videoCard) {
+                                videoCard.remove();
+                                
+                                // Check if grid is now empty
+                                if (videoGrid.children.length === 0) {
+                                    showNoResults();
+                                }
+                            }
+                            // Close the modal since the video is no longer visible
+                            closeModal();
+                        }
                     }
-                }
-                modalTagInput.value = '';
-                modalTagInputContainer.classList.add('hidden');
-                modalAddTagBtn.classList.remove('hidden');
+                    modalTagInput.value = '';
+                    modalTagInputContainer.classList.add('hidden');
+                    modalAddTagBtn.classList.remove('hidden');
+                }, 300);
             };
             
             modalTagInput.onkeydown = (e) => {
@@ -1062,6 +1345,9 @@ function handleCarouselKeydown(e) {
 
 // Close video modal
 function closeModal() {
+    // Clean up any open tag autocomplete dropdowns
+    document.querySelectorAll('.tag-autocomplete-dropdown').forEach(el => el.remove());
+
     modal.classList.add('hidden');
     document.body.style.overflow = '';
     
@@ -1084,7 +1370,8 @@ function closeModal() {
 function showLoading() {
     loadingEl.classList.remove('hidden');
     videoGrid.classList.add('hidden');
-    paginationEl.classList.add('hidden');
+    paginationTopEl.classList.add('hidden');
+    paginationBottomEl.classList.add('hidden');
 }
 
 // Utility: Hide loading state
@@ -1097,7 +1384,8 @@ function hideLoading() {
 function showNoResults() {
     noResultsEl.classList.remove('hidden');
     videoGrid.classList.add('hidden');
-    paginationEl.classList.add('hidden');
+    paginationTopEl.classList.add('hidden');
+    paginationBottomEl.classList.add('hidden');
 }
 
 // Utility: Hide no results message

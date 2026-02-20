@@ -629,6 +629,28 @@ async def add_video_tag(video_id: str, tag: str = Query(..., description="Tag to
     return result
 
 
+@app.delete("/api/videos/{video_id}/tags")
+async def remove_video_tag(
+    video_id: str, tag: str = Query(..., description="Tag to remove")
+):
+    """
+    Remove a manual tag from a video.
+
+    Deletes the tag entry from the tags table for the specified video.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from tagging import remove_tags_from_post
+
+    result = remove_tags_from_post(video_id, tag)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
+
+
 @app.get("/api/videos/{video_id}/tags")
 async def get_video_tags(video_id: str):
     """

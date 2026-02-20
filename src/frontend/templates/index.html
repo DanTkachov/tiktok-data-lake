@@ -38,6 +38,13 @@
             </div>
         </header>
 
+        <!-- Top Pagination (Full Width) -->
+        <div id="pagination-top" class="pagination hidden pagination-fullwidth">
+            <button id="prev-btn-top" class="pagination-btn" disabled>Previous</button>
+            <div id="page-numbers-top" class="page-numbers"></div>
+            <button id="next-btn-top" class="pagination-btn" disabled>Next</button>
+        </div>
+
         <div class="main-layout">
             <!-- Sidebar with Stats and Filters -->
             <aside class="sidebar">
@@ -202,12 +209,14 @@
                     <p>No videos found.</p>
                 </div>
 
-                <div id="pagination" class="pagination hidden">
-                    <button id="prev-btn" class="pagination-btn" disabled>Previous</button>
-                    <span id="page-info"></span>
-                    <button id="next-btn" class="pagination-btn" disabled>Next</button>
-                </div>
             </main>
+        </div>
+
+        <!-- Bottom Pagination (Full Width) -->
+        <div id="pagination-bottom" class="pagination hidden pagination-fullwidth">
+            <button id="prev-btn-bottom" class="pagination-btn" disabled>Previous</button>
+            <div id="page-numbers-bottom" class="page-numbers"></div>
+            <button id="next-btn-bottom" class="pagination-btn" disabled>Next</button>
         </div>
     </div>
 
