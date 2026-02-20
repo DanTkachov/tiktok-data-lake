@@ -87,9 +87,50 @@ const modalAddTagBtn = document.getElementById('modal-add-tag-btn');
 const modalTagInputContainer = document.getElementById('modal-tag-input-container');
 const modalTagInput = document.getElementById('modal-tag-input');
 
-// Setup collapsible sidebar sections
+const SIDEBAR_COLLAPSE_KEY = 'tiktok_lake_sidebar_collapse';
+
+function loadSidebarCollapseState() {
+    try {
+        const saved = localStorage.getItem(SIDEBAR_COLLAPSE_KEY);
+        if (!saved) return;
+        
+        const collapsedSections = JSON.parse(saved);
+        
+        Object.entries(collapsedSections).forEach(([targetId, isCollapsed]) => {
+            if (!isCollapsed) return;
+            
+            const target = document.getElementById(targetId);
+            const btn = document.querySelector(`.collapse-btn[data-target="${targetId}"], .collapse-btn-small[data-target="${targetId}"]`);
+            
+            if (target && btn) {
+                target.classList.add('collapsed');
+                btn.classList.add('collapsed');
+                
+                const icon = btn.querySelector('.collapse-icon');
+                if (icon) {
+                    icon.textContent = '▶';
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error loading sidebar collapse state:', e);
+    }
+}
+
+function saveSidebarCollapseState(targetId, isCollapsed) {
+    try {
+        const saved = localStorage.getItem(SIDEBAR_COLLAPSE_KEY);
+        const collapsedSections = saved ? JSON.parse(saved) : {};
+        
+        collapsedSections[targetId] = isCollapsed;
+        
+        localStorage.setItem(SIDEBAR_COLLAPSE_KEY, JSON.stringify(collapsedSections));
+    } catch (e) {
+        console.error('Error saving sidebar collapse state:', e);
+    }
+}
+
 function setupCollapsibleSections() {
-    // Get all collapse buttons
     const collapseBtns = document.querySelectorAll('.collapse-btn, .collapse-btn-small');
     
     collapseBtns.forEach(btn => {
@@ -98,11 +139,9 @@ function setupCollapsibleSections() {
             const target = document.getElementById(targetId);
             
             if (target) {
-                // Toggle collapsed state
                 target.classList.toggle('collapsed');
                 btn.classList.toggle('collapsed');
                 
-                // Update icon
                 const icon = btn.querySelector('.collapse-icon');
                 if (icon) {
                     if (target.classList.contains('collapsed')) {
@@ -111,6 +150,8 @@ function setupCollapsibleSections() {
                         icon.textContent = '▼';
                     }
                 }
+                
+                saveSidebarCollapseState(targetId, target.classList.contains('collapsed'));
             }
         });
     });
@@ -118,7 +159,7 @@ function setupCollapsibleSections() {
 
 // Initialize
 async function init() {
-    // Setup collapsible sidebar sections
+    loadSidebarCollapseState();
     setupCollapsibleSections();
     
     // Load stats
@@ -1326,6 +1367,11 @@ function prevImage() {
 // Handle keyboard navigation
 function handleCarouselKeydown(e) {
     if (!isImageCarousel) return;
+    
+    const activeEl = document.activeElement;
+    const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+    
+    if (isTyping) return;
     
     switch(e.key) {
         case 'ArrowRight':
