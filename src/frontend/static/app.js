@@ -406,19 +406,27 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
             return;
         }
         
-        // Filter manual tags (case insensitive, match anywhere)
-        // Sort by count descending to show most popular tags first
-        const matches = allTags
-            .filter(tag => tag.type === 'manual' && tag.tag.toLowerCase().includes(query))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5); // Max 5 suggestions
+        const manualTags = allTags.filter(tag => tag.type === 'manual');
+        
+        const matches = manualTags
+            .map(tag => ({
+                ...tag,
+                matchIndex: tag.tag.toLowerCase().indexOf(query)
+            }))
+            .filter(tag => tag.matchIndex !== -1)
+            .sort((a, b) => {
+                if (a.matchIndex !== b.matchIndex) {
+                    return a.matchIndex - b.matchIndex;
+                }
+                return a.tag.localeCompare(b.tag);
+            })
+            .slice(0, 5);
         
         if (matches.length === 0) {
             hideDropdown();
             return;
         }
         
-        // Render suggestions
         dropdown.innerHTML = matches.map(tagObj => 
             `<div class="tag-suggestion" data-tag="${escapeHtml(tagObj.tag)}">${escapeHtml(tagObj.tag)}</div>`
         ).join('');
