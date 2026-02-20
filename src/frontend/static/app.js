@@ -472,6 +472,9 @@ async function loadStats() {
 
 // Tag Autocomplete Functions
 function createTagAutocomplete(input, videoId, onTagSelected) {
+    // Clean up any existing dropdowns first
+    document.querySelectorAll('.tag-autocomplete-dropdown').forEach(el => el.remove());
+    
     const dropdown = document.createElement('div');
     dropdown.className = 'tag-autocomplete-dropdown hidden';
     
@@ -555,7 +558,9 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
         isSelecting = true;
         const selectedTag = suggestion.dataset.tag;
         
-        hideDropdown();
+        // Clean up all autocomplete dropdowns
+        document.querySelectorAll('.tag-autocomplete-dropdown').forEach(el => el.remove());
+        
         input.value = '';
         
         await onTagSelected(selectedTag);
@@ -566,7 +571,7 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
     input.addEventListener('blur', () => {
         setTimeout(() => {
             if (!isDropdownHovered && !isSelecting) {
-                hideDropdown();
+                document.querySelectorAll('.tag-autocomplete-dropdown').forEach(el => el.remove());
             }
         }, 200);
     });
@@ -1287,16 +1292,21 @@ async function openVideoModal(videoId) {
         document.addEventListener('keydown', handleCarouselKeydown);
         
         // Setup tag input handlers
-        if (modalAddTagBtn && modalTagInputContainer && modalTagInput) {
+        if (modalAddTagBtn && modalTagInputContainer) {
+            // Clone input to remove old event listeners
+            const currentInput = document.getElementById('modal-tag-input');
+            const newInput = currentInput.cloneNode(true);
+            currentInput.parentNode.replaceChild(newInput, currentInput);
+            
             // Show input when add tag button is clicked
             modalAddTagBtn.onclick = () => {
                 modalAddTagBtn.classList.add('hidden');
                 modalTagInputContainer.classList.remove('hidden');
-                modalTagInput.focus();
+                newInput.focus();
             };
             
             // Setup autocomplete for modal tag input
-            createTagAutocomplete(modalTagInput, videoId, async (selectedTag) => {
+            createTagAutocomplete(newInput, videoId, async (selectedTag) => {
                 await addTagToVideo(videoId, selectedTag);
                 await loadVideoTags(videoId);
                 await loadAllTags();
@@ -1317,7 +1327,7 @@ async function openVideoModal(videoId) {
             const handleTagSubmit = async () => {
                 // Wait a bit to allow autocomplete click to process
                 setTimeout(async () => {
-                    const value = modalTagInput.value.trim();
+                    const value = newInput.value.trim();
                     if (value) {
                         const tags = value.split(',').map(t => t.trim()).filter(t => t);
                         for (const tag of tags) {
@@ -1339,26 +1349,26 @@ async function openVideoModal(videoId) {
                             }
                         }
                     }
-                    modalTagInput.value = '';
+                    newInput.value = '';
                     modalTagInputContainer.classList.add('hidden');
                     modalAddTagBtn.classList.remove('hidden');
                 }, 300);
             };
             
-            modalTagInput.onkeydown = (e) => {
+            newInput.onkeydown = (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     handleTagSubmit();
                 } else if (e.key === 'Escape') {
-                    modalTagInput.value = '';
+                    newInput.value = '';
                     modalTagInputContainer.classList.add('hidden');
                     modalAddTagBtn.classList.remove('hidden');
                 }
             };
             
-            modalTagInput.onblur = () => {
+            newInput.onblur = () => {
                 setTimeout(() => {
-                    modalTagInput.value = '';
+                    newInput.value = '';
                     modalTagInputContainer.classList.add('hidden');
                     modalAddTagBtn.classList.remove('hidden');
                 }, 200);
