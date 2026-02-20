@@ -38,6 +38,7 @@ const statTotal = document.getElementById('stat-total');
 const statDownloaded = document.getElementById('stat-downloaded');
 const statTranscribed = document.getElementById('stat-transcribed');
 const statOcr = document.getElementById('stat-ocr');
+const statTagged = document.getElementById('stat-tagged');
 
 // Filter elements
 const modeDownloaded = document.getElementById('mode-downloaded');
@@ -395,6 +396,7 @@ async function loadStats() {
         if (statDownloaded) statDownloaded.textContent = formatNumber(stats.downloaded);
         if (statTranscribed) statTranscribed.textContent = formatNumber(stats.transcribed);
         if (statOcr) statOcr.textContent = formatNumber(stats.ocr);
+        if (statTagged) statTagged.textContent = formatNumber(stats.tagged);
     } catch (error) {
         console.error('Error loading stats:', error);
     }

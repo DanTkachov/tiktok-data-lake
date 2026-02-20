@@ -74,7 +74,7 @@ async def get_stats():
     """
     Get database statistics.
 
-    Returns counts of total videos, downloaded, transcribed, and OCR'd videos.
+    Returns counts of total videos, downloaded, transcribed, OCR'd, and tagged videos.
     """
     conn = get_connection()
     cursor = conn.cursor()
@@ -102,11 +102,18 @@ async def get_stats():
         """)
         ocr = cursor.fetchone()[0]
 
+        # Tagged videos (videos with at least one manual tag)
+        cursor.execute("""
+            SELECT COUNT(DISTINCT video_id) FROM tags WHERE manual_tag IS NOT NULL
+        """)
+        tagged = cursor.fetchone()[0]
+
         return {
             "total": total,
             "downloaded": downloaded,
             "transcribed": transcribed,
             "ocr": ocr,
+            "tagged": tagged,
         }
 
     finally:
