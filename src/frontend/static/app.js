@@ -19,6 +19,7 @@ let allTags = []; // Cache of all available tags
 let searchDebounceTimer = null; // For debouncing live search
 let gridColumns = 5; // Number of columns in video grid
 let gridRows = 5; // Number of rows per page
+let modalLayout = 'vertical'; // 'vertical' or 'horizontal'
 
 // DOM Elements
 const videoGrid = document.getElementById('video-grid');
@@ -96,6 +97,7 @@ const SIDEBAR_COLLAPSE_KEY = 'tiktok_lake_sidebar_collapse';
 const TAGS_MODE_KEY = 'tiktok_lake_tags_mode';
 const TAGS_STATUS_KEY = 'tiktok_lake_tags_status';
 const GRID_LAYOUT_KEY = 'tiktok_lake_grid_layout';
+const MODAL_LAYOUT_KEY = 'tiktok_lake_modal_layout';
 
 function loadSidebarCollapseState() {
     try {
@@ -218,6 +220,27 @@ function saveGridLayout() {
     }
 }
 
+function loadModalLayout() {
+    try {
+        const saved = localStorage.getItem(MODAL_LAYOUT_KEY);
+        if (saved === 'horizontal') {
+            modalLayout = 'horizontal';
+            const horizontalRadio = document.getElementById('modal-layout-horizontal');
+            if (horizontalRadio) horizontalRadio.checked = true;
+        }
+    } catch (e) {
+        console.error('Error loading modal layout:', e);
+    }
+}
+
+function saveModalLayout(layout) {
+    try {
+        localStorage.setItem(MODAL_LAYOUT_KEY, layout);
+    } catch (e) {
+        console.error('Error saving modal layout:', e);
+    }
+}
+
 function setupCollapsibleSections() {
     const collapseBtns = document.querySelectorAll('.collapse-btn, .collapse-btn-small');
     
@@ -251,6 +274,7 @@ async function init() {
     loadTagsMode();
     loadTagsStatus();
     loadGridLayout();
+    loadModalLayout();
     setupCollapsibleSections();
     updateAllFiltersUi();
     
@@ -1288,6 +1312,16 @@ async function openVideoModal(videoId) {
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         
+        // Apply modal layout
+        const modalBody = modal.querySelector('.modal-body');
+        if (modalBody) {
+            if (modalLayout === 'horizontal') {
+                modalBody.classList.add('horizontal');
+            } else {
+                modalBody.classList.remove('horizontal');
+            }
+        }
+        
         // Add keyboard listener
         document.addEventListener('keydown', handleCarouselKeydown);
         
@@ -1933,6 +1967,24 @@ function setupSettingsModal() {
     
     if (rowsSlider) {
         rowsSlider.addEventListener('input', updateGridLayout);
+    }
+    
+    // Modal layout radio buttons
+    const modalLayoutVertical = document.getElementById('modal-layout-vertical');
+    const modalLayoutHorizontal = document.getElementById('modal-layout-horizontal');
+    
+    if (modalLayoutVertical) {
+        modalLayoutVertical.addEventListener('change', () => {
+            modalLayout = 'vertical';
+            saveModalLayout('vertical');
+        });
+    }
+    
+    if (modalLayoutHorizontal) {
+        modalLayoutHorizontal.addEventListener('change', () => {
+            modalLayout = 'horizontal';
+            saveModalLayout('horizontal');
+        });
     }
 }
 
