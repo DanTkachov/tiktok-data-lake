@@ -136,6 +136,9 @@ async def get_videos(
         None,
         description="Filter by tags (AND logic - video must have ALL selected tags)",
     ),
+    tags_mode: Optional[str] = Query(
+        "and", description="Tag filter mode: 'and' (all tags) or 'or' (any tag)"
+    ),
 ):
     """
     Get a paginated list of all videos.
@@ -187,22 +190,42 @@ async def get_videos(
             elif tags_status == "untagged":
                 where_clause += " AND v.id NOT IN (SELECT DISTINCT video_id FROM tags WHERE manual_tag IS NOT NULL)"
 
-        # Tags filter (AND logic - video must have ALL specified tags)
+        # Tags filter
+        order_clause = "ORDER BY v.date_favorited DESC NULLS LAST, v.create_time DESC"
+        match_count_join = ""
+
         if tags:
-            # Create placeholders for the IN clause
             placeholders = ", ".join(["?"] * len(tags))
-            where_clause += f""" AND v.id IN (
-                SELECT video_id 
-                FROM tags 
-                WHERE manual_tag IN ({placeholders})
-                GROUP BY video_id 
-                HAVING COUNT(DISTINCT manual_tag) = ?
-            )"""
-            params.extend(tags)
-            params.append(len(tags))
+
+            if tags_mode == "or":
+                # OR mode: video has ANY of the tags, sort by match count
+                match_count_join = f"""
+                    LEFT JOIN (
+                        SELECT video_id, COUNT(*) as match_count
+                        FROM tags
+                        WHERE manual_tag IN ({placeholders})
+                        GROUP BY video_id
+                    ) tm ON v.id = tm.video_id
+                """
+                where_clause += f" AND tm.match_count IS NOT NULL"
+                order_clause = "ORDER BY tm.match_count DESC, v.date_favorited DESC NULLS LAST, v.create_time DESC"
+                params.extend(tags)
+            else:
+                # AND mode: video must have ALL specified tags
+                where_clause += f""" AND v.id IN (
+                    SELECT video_id 
+                    FROM tags 
+                    WHERE manual_tag IN ({placeholders})
+                    GROUP BY video_id 
+                    HAVING COUNT(DISTINCT manual_tag) = ?
+                )"""
+                params.extend(tags)
+                params.append(len(tags))
 
         # Get total count
-        count_query = f"SELECT COUNT(*) FROM video_data v {where_clause}"
+        count_query = (
+            f"SELECT COUNT(*) FROM video_data v {match_count_join} {where_clause}"
+        )
         cursor.execute(count_query, params)
         total = cursor.fetchone()[0]
 
@@ -227,8 +250,9 @@ async def get_videos(
                 v.video_is_private,
                 v.download_status
             FROM video_data v
+            {match_count_join}
             {where_clause}
-            ORDER BY v.date_favorited DESC NULLS LAST, v.create_time DESC
+            {order_clause}
             LIMIT ? OFFSET ?
         """,
             query_params,
@@ -716,6 +740,9 @@ async def search_videos(
         None,
         description="Filter by tags (AND logic - video must have ALL selected tags)",
     ),
+    tags_mode: Optional[str] = Query(
+        "and", description="Tag filter mode: 'and' (all tags) or 'or' (any tag)"
+    ),
 ):
     """
     Search videos by title, uploader, description, OCR text, and transcription.
@@ -765,23 +792,42 @@ async def search_videos(
         elif ocr_status == "not_ocr":
             where_clause += " AND v.ocr_status = 0"
 
-    # Tags filter (AND logic - video must have ALL specified tags)
+    # Tags filter
+    order_clause = "ORDER BY v.date_favorited DESC NULLS LAST, v.create_time DESC"
+    match_count_join = ""
+
     if tags:
-        # Create placeholders for the IN clause
         placeholders = ", ".join(["?"] * len(tags))
-        where_clause += f""" AND v.id IN (
-            SELECT video_id 
-            FROM tags 
-            WHERE manual_tag IN ({placeholders})
-            GROUP BY video_id 
-            HAVING COUNT(DISTINCT manual_tag) = ?
-        )"""
-        params.extend(tags)
-        params.append(len(tags))
+
+        if tags_mode == "or":
+            # OR mode: video has ANY of the tags, sort by match count
+            match_count_join = f"""
+                LEFT JOIN (
+                    SELECT video_id, COUNT(*) as match_count
+                    FROM tags
+                    WHERE manual_tag IN ({placeholders})
+                    GROUP BY video_id
+                ) tm ON v.id = tm.video_id
+            """
+            where_clause += " AND tm.match_count IS NOT NULL"
+            order_clause = "ORDER BY tm.match_count DESC, v.date_favorited DESC NULLS LAST, v.create_time DESC"
+            params.extend(tags)
+        else:
+            # AND mode: video must have ALL specified tags
+            where_clause += f""" AND v.id IN (
+                SELECT video_id 
+                FROM tags 
+                WHERE manual_tag IN ({placeholders})
+                GROUP BY video_id 
+                HAVING COUNT(DISTINCT manual_tag) = ?
+            )"""
+            params.extend(tags)
+            params.append(len(tags))
 
     try:
         # Get total count of matching videos
         count_query = f"""SELECT COUNT(*) FROM video_data v
+            {match_count_join}
             {where_clause}"""
         cursor.execute(count_query, params)
 
@@ -810,8 +856,9 @@ async def search_videos(
                 v.transcription,
                 v.ocr
             FROM video_data v
+            {match_count_join}
             {where_clause}
-            ORDER BY v.date_favorited DESC NULLS LAST, v.create_time DESC
+            {order_clause}
             LIMIT ? OFFSET ?
         """,
             query_params,

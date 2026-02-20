@@ -14,6 +14,7 @@ let transcriptionFilter = 'all'; // 'all', 'transcribed', 'not_transcribed', 'bo
 let ocrFilter = 'all'; // 'all', 'ocr', 'not_ocr', 'both', or 'none'
 let tagsFilter = 'all'; // 'all', 'tagged', 'untagged'
 let selectedTags = []; // Array of selected tag names for filtering (AND logic)
+let tagsMode = 'and'; // 'and' or 'or'
 let allTags = []; // Cache of all available tags
 let searchDebounceTimer = null; // For debouncing live search
 
@@ -62,6 +63,9 @@ const userTagsList = document.getElementById('user-tags-list');
 const tagsActions = document.getElementById('tags-actions');
 const tagsSelectAllBtn = document.getElementById('tags-select-all');
 const tagsClearBtn = document.getElementById('tags-clear');
+const tagModeAnd = document.getElementById('tag-mode-and');
+const tagModeOr = document.getElementById('tag-mode-or');
+const tagModeBlock = document.getElementById('tag-mode-block');
 
 // Modal elements
 const modal = document.getElementById('video-modal');
@@ -88,6 +92,7 @@ const modalTagInputContainer = document.getElementById('modal-tag-input-containe
 const modalTagInput = document.getElementById('modal-tag-input');
 
 const SIDEBAR_COLLAPSE_KEY = 'tiktok_lake_sidebar_collapse';
+const TAGS_MODE_KEY = 'tiktok_lake_tags_mode';
 
 function loadSidebarCollapseState() {
     try {
@@ -130,6 +135,26 @@ function saveSidebarCollapseState(targetId, isCollapsed) {
     }
 }
 
+function loadTagsMode() {
+    try {
+        const saved = localStorage.getItem(TAGS_MODE_KEY);
+        if (saved === 'or') {
+            tagsMode = 'or';
+            if (tagModeOr) tagModeOr.checked = true;
+        }
+    } catch (e) {
+        console.error('Error loading tags mode:', e);
+    }
+}
+
+function saveTagsMode(mode) {
+    try {
+        localStorage.setItem(TAGS_MODE_KEY, mode);
+    } catch (e) {
+        console.error('Error saving tags mode:', e);
+    }
+}
+
 function setupCollapsibleSections() {
     const collapseBtns = document.querySelectorAll('.collapse-btn, .collapse-btn-small');
     
@@ -160,6 +185,7 @@ function setupCollapsibleSections() {
 // Initialize
 async function init() {
     loadSidebarCollapseState();
+    loadTagsMode();
     setupCollapsibleSections();
     
     // Load stats
@@ -290,6 +316,29 @@ async function init() {
             updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
+        });
+    }
+    
+    // Tag mode radio buttons (AND/OR)
+    if (tagModeAnd) {
+        tagModeAnd.addEventListener('change', () => {
+            tagsMode = 'and';
+            saveTagsMode('and');
+            if (selectedTags.length > 0) {
+                currentPage = 1;
+                loadVideos(1);
+            }
+        });
+    }
+    
+    if (tagModeOr) {
+        tagModeOr.addEventListener('change', () => {
+            tagsMode = 'or';
+            saveTagsMode('or');
+            if (selectedTags.length > 0) {
+                currentPage = 1;
+                loadVideos(1);
+            }
         });
     }
     
@@ -649,11 +698,13 @@ function updateAllFiltersUi() {
         // Disable specific tag selection when filtering for untagged videos
         if (userTagsList) userTagsList.classList.add('disabled-section');
         if (tagsActions) tagsActions.classList.add('disabled-section');
+        if (tagModeBlock) tagModeBlock.classList.add('disabled');
     } else {
         tagsFilter = 'all';
         // Enable tag selection
         if (userTagsList) userTagsList.classList.remove('disabled-section');
         if (tagsActions) tagsActions.classList.remove('disabled-section');
+        if (tagModeBlock) tagModeBlock.classList.remove('disabled');
     }
 }
 
@@ -704,6 +755,7 @@ async function loadVideos(page = 1) {
                 selectedTags.forEach(tag => {
                     url += `&tags=${encodeURIComponent(tag)}`;
                 });
+                url += `&tags_mode=${tagsMode}`;
             }
         }
         
