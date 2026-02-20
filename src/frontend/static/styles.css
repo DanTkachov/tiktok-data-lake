@@ -601,9 +601,7 @@ header h1 {
 
 /* Tag Autocomplete Dropdown */
 .tag-autocomplete-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
+    position: fixed;
     background: rgba(30, 40, 60, 0.95);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -612,7 +610,7 @@ header h1 {
     width: 180px;
     max-height: 200px;
     overflow-y: auto;
-    z-index: 100;
+    z-index: 10001;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 

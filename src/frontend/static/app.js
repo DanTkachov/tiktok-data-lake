@@ -420,8 +420,15 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
         isDropdownHovered = false;
     });
 
+    const updatePosition = () => {
+        const rect = input.getBoundingClientRect();
+        dropdown.style.top = `${rect.bottom + 4}px`;
+        dropdown.style.left = `${rect.left}px`;
+    };
+
     const showDropdown = () => {
-        input.parentElement.appendChild(dropdown);
+        document.body.appendChild(dropdown);
+        updatePosition();
         dropdown.classList.remove('hidden');
     };
 
@@ -1242,8 +1249,6 @@ async function openVideoModal(videoId) {
                             showNoResults();
                         }
                     }
-                    // Close the modal since the video is no longer visible
-                    closeModal();
                 }
             });
             
@@ -1271,8 +1276,6 @@ async function openVideoModal(videoId) {
                                     showNoResults();
                                 }
                             }
-                            // Close the modal since the video is no longer visible
-                            closeModal();
                         }
                     }
                     modalTagInput.value = '';
@@ -1285,10 +1288,20 @@ async function openVideoModal(videoId) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     handleTagSubmit();
+                } else if (e.key === 'Escape') {
+                    modalTagInput.value = '';
+                    modalTagInputContainer.classList.add('hidden');
+                    modalAddTagBtn.classList.remove('hidden');
                 }
             };
             
-            modalTagInput.onblur = handleTagSubmit;
+            modalTagInput.onblur = () => {
+                setTimeout(() => {
+                    modalTagInput.value = '';
+                    modalTagInputContainer.classList.add('hidden');
+                    modalAddTagBtn.classList.remove('hidden');
+                }, 200);
+            };
         }
         
         // Copy button event listeners
