@@ -1,0 +1,26 @@
+# TikTok Data Lake - TODO
+
+## Performance
+- [ ] Investigate SQLite database contention during heavy download activity
+  - Consider connection pooling
+  - Evaluate WAL mode settings
+  - Consider read replicas or separate read/write connections
+  - Profile slow queries during concurrent writes
+
+## Features
+- [ ] Support short TikTok links (vm.tiktok.com) - resolve redirects server-side
+- [ ] Auto-queue downloads after adding links via paste
+
+## Soft Delete System
+- [ ] Implement soft delete for videos using `video_is_deleted` column
+- [ ] Update all queries to exclude deleted videos by default:
+  - `/api/videos`
+  - `/api/search`
+  - `/api/stats`
+  - `/api/videos/{id}`
+- [ ] Add "Trash" section in sidebar to view deleted videos
+- [ ] Add Restore/Delete Forever buttons in Trash view
+- [ ] Handle BLOB storage (purge on hard delete, keep on soft delete)
+- [ ] Update task queues to skip deleted videos (download, transcription, OCR)
+- [ ] Decide tag handling: hide from sidebar counts or keep associated
+- [ ] Add "Empty Trash" or scheduled cleanup for hard delete

@@ -61,7 +61,6 @@ const typeDeselectAllBtn = document.getElementById('type-deselect-all');
 // Tags elements
 const userTagsList = document.getElementById('user-tags-list');
 const tagsActions = document.getElementById('tags-actions');
-const tagsSelectAllBtn = document.getElementById('tags-select-all');
 const tagsClearBtn = document.getElementById('tags-clear');
 const tagModeAnd = document.getElementById('tag-mode-and');
 const tagModeOr = document.getElementById('tag-mode-or');
@@ -364,10 +363,6 @@ async function init() {
     }
     
     // Tag filter buttons
-    if (tagsSelectAllBtn) {
-        tagsSelectAllBtn.addEventListener('click', selectAllTags);
-    }
-    
     if (tagsClearBtn) {
         tagsClearBtn.addEventListener('click', clearAllTags);
     }
@@ -548,7 +543,6 @@ function renderTagsList() {
     
     if (allTags.length === 0) {
         userTagsList.innerHTML = '<p class="no-tags-message">No tags yet. Tag videos to see them here.</p>';
-        if (tagsActions) tagsActions.style.display = 'none';
         return;
     }
     
@@ -557,9 +551,11 @@ function renderTagsList() {
     
     if (manualTags.length === 0) {
         userTagsList.innerHTML = '<p class="no-tags-message">No manual tags yet.</p>';
-        if (tagsActions) tagsActions.style.display = 'none';
         return;
     }
+    
+    // Sort tags alphabetically
+    manualTags.sort((a, b) => a.tag.localeCompare(b.tag));
     
     // Render checkboxes for each tag
     userTagsList.innerHTML = manualTags.map(tag => {
@@ -572,9 +568,6 @@ function renderTagsList() {
             </label>
         `;
     }).join('');
-    
-    // Show the action buttons
-    if (tagsActions) tagsActions.style.display = 'flex';
     
     // Add event listeners to the new checkboxes
     document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
@@ -597,15 +590,6 @@ function handleTagSelection(event) {
     }
     
     // Reload videos with new tag filter
-    currentPage = 1;
-    loadVideos(1);
-}
-
-// Select all tags
-function selectAllTags() {
-    const manualTags = allTags.filter(tag => tag.type === 'manual');
-    selectedTags = manualTags.map(tag => tag.tag);
-    renderTagsList();
     currentPage = 1;
     loadVideos(1);
 }
