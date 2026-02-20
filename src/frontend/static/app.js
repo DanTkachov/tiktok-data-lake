@@ -411,6 +411,7 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
     dropdown.className = 'tag-autocomplete-dropdown hidden';
     
     let isDropdownHovered = false;
+    let isSelecting = false;
     
     dropdown.addEventListener('mouseenter', () => {
         isDropdownHovered = true;
@@ -427,7 +428,9 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
     };
 
     const showDropdown = () => {
-        document.body.appendChild(dropdown);
+        if (!dropdown.parentNode) {
+            document.body.appendChild(dropdown);
+        }
         updatePosition();
         dropdown.classList.remove('hidden');
     };
@@ -474,22 +477,30 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
         ).join('');
         
         showDropdown();
-        
-        // Add click handlers to suggestions
-        dropdown.querySelectorAll('.tag-suggestion').forEach(suggestion => {
-            suggestion.addEventListener('click', async () => {
-                const selectedTag = suggestion.dataset.tag;
-                await onTagSelected(selectedTag);
-                hideDropdown();
-                input.value = '';
-            });
-        });
     });
     
-    // Hide dropdown on blur (unless hovering dropdown)
+    // Handle click on suggestions (using event delegation)
+    dropdown.addEventListener('click', async (e) => {
+        const suggestion = e.target.closest('.tag-suggestion');
+        if (!suggestion) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        isSelecting = true;
+        const selectedTag = suggestion.dataset.tag;
+        
+        hideDropdown();
+        input.value = '';
+        
+        await onTagSelected(selectedTag);
+        isSelecting = false;
+    });
+    
+    // Hide dropdown on blur (unless hovering dropdown or selecting)
     input.addEventListener('blur', () => {
         setTimeout(() => {
-            if (!isDropdownHovered) {
+            if (!isDropdownHovered && !isSelecting) {
                 hideDropdown();
             }
         }, 200);
@@ -501,10 +512,6 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
             hideDropdown();
         }
     });
-    
-    // Update position on scroll/resize if visible
-    // Note: This is a simple implementation, ideally we'd remove listeners on destroy
-    // but since we don't have a clear destroy hook, we'll rely on hideDropdown being called on blur/escape
     
     return dropdown;
 }
