@@ -1794,6 +1794,59 @@ function setupIngestModal() {
 // Initialize ingest modal on page load
 document.addEventListener('DOMContentLoaded', setupIngestModal);
 
+// Settings Modal
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const settingsModalClose = document.getElementById('settings-modal-close');
+
+function openSettingsModal() {
+    if (settingsModal) {
+        settingsModal.classList.remove('hidden');
+        settingsBtn.classList.add('active');
+    }
+}
+
+function closeSettingsModal() {
+    if (settingsModal) {
+        settingsModal.classList.add('hidden');
+        settingsBtn.classList.remove('active');
+    }
+}
+
+function setupSettingsModal() {
+    if (!settingsBtn || !settingsModal) return;
+    
+    settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (settingsModal.classList.contains('hidden')) {
+            openSettingsModal();
+        } else {
+            closeSettingsModal();
+        }
+    });
+    
+    if (settingsModalClose) {
+        settingsModalClose.addEventListener('click', closeSettingsModal);
+    }
+    
+    // Close on click outside
+    document.addEventListener('click', (e) => {
+        if (!settingsModal.classList.contains('hidden') && 
+            !settingsModal.contains(e.target) &&
+            !settingsBtn.contains(e.target)) {
+            closeSettingsModal();
+        }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !settingsModal.classList.contains('hidden')) {
+            closeSettingsModal();
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', setupSettingsModal);
+
 async function handleQueueTranscriptions() {
     const btn = document.getElementById('btn-queue-transcriptions');
     const originalText = btn.textContent;
