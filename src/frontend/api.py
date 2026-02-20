@@ -1066,6 +1066,135 @@ async def admin_ingest_json(json_file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to ingest JSON: {str(e)}")
 
 
+@app.post("/api/admin/ingest-links")
+async def admin_ingest_links(
+    links: str = Query(
+        ..., description="TikTok links (newline, comma, or space separated)"
+    ),
+):
+    """
+    Ingest TikTok video links into the database.
+
+    Parses various TikTok URL formats and adds them with minimal metadata.
+    Metadata will be filled in when the video is downloaded.
+
+    Supported URL formats:
+    - https://www.tiktok.com/@username/video/1234567890
+    - https://www.tiktokv.com/share/video/1234567890/
+
+    Note: Short links (vm.tiktok.com) are not currently supported.
+
+    Args:
+        links: String containing TikTok links
+
+    Returns:
+        Status and count of imported records
+    """
+    import re
+    from datetime import datetime
+
+    try:
+        import os
+
+        if not os.path.exists(DB_PATH):
+            init_database()
+
+        # Parse links - split by newlines, commas, and spaces
+        raw_links = re.split(r"[\n,\s]+", links.strip())
+        raw_links = [l.strip() for l in raw_links if l.strip()]
+
+        stats = {
+            "total": len(raw_links),
+            "inserted": 0,
+            "skipped": 0,
+            "invalid": 0,
+            "invalid_links": [],
+        }
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Regex patterns for valid TikTok URLs
+        patterns = [
+            r"https?://(?:www\.)?tiktok\.com/@[\w.-]+/video/(\d+)",
+            r"https?://(?:www\.)?tiktokv\.com/share/video/(\d+)/?",
+        ]
+
+        for link in raw_links:
+            video_id = None
+
+            # Try each pattern to extract video ID
+            for pattern in patterns:
+                match = re.match(pattern, link)
+                if match:
+                    video_id = match.group(1)
+                    break
+
+            # Check for short links (not supported)
+            if "vm.tiktok.com" in link or "vt.tiktok.com" in link:
+                stats["invalid"] += 1
+                stats["invalid_links"].append(
+                    {
+                        "link": link,
+                        "reason": "Short links not supported. Please use full URLs.",
+                    }
+                )
+                continue
+
+            if not video_id:
+                stats["invalid"] += 1
+                stats["invalid_links"].append(
+                    {"link": link, "reason": "Could not parse video ID from URL"}
+                )
+                continue
+
+            # Check if video already exists
+            cursor.execute("SELECT id FROM video_data WHERE id = ?", (video_id,))
+            if cursor.fetchone():
+                stats["skipped"] += 1
+                continue
+
+            # Insert with minimal metadata (current time as date_favorited)
+            date_favorited = int(datetime.now().timestamp())
+
+            cursor.execute(
+                """
+                INSERT INTO video_data (
+                    id, title, uploader, uploader_id, desc, create_time,
+                    duration, tiktok_url, download_status, transcription_status,
+                    transcription, ocr_status, ocr, date_favorited, video_is_deleted, video_is_private
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0, ?, ?, 0, 0)
+            """,
+                (
+                    video_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    link,
+                    None,
+                    None,
+                    date_favorited,
+                ),
+            )
+
+            stats["inserted"] += 1
+
+        conn.commit()
+        conn.close()
+
+        return {
+            "status": "success",
+            "message": f"Added {stats['inserted']} links, skipped {stats['skipped']} duplicates, {stats['invalid']} invalid",
+            "result": stats,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to ingest links: {str(e)}")
+
+
 @app.post("/api/admin/queue-transcriptions")
 async def admin_queue_transcriptions():
     """

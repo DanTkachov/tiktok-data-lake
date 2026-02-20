@@ -268,6 +268,30 @@
                     <div class="spinner"></div>
                     <p>Ingesting JSON file...</p>
                 </div>
+                
+                <div class="ingest-divider">
+                    <span>OR</span>
+                </div>
+                
+                <h2>Add Links</h2>
+                <p class="ingest-subtitle">Paste TikTok video links to add them to the database</p>
+                
+                <textarea 
+                    id="links-input" 
+                    class="links-input" 
+                    placeholder="Paste links here (one per line, comma-separated, or space-separated)&#10;&#10;Example:&#10;https://www.tiktok.com/@user/video/1234567890&#10;https://www.tiktokv.com/share/video/1234567890/"
+                ></textarea>
+                
+                <div id="links-result" class="links-result hidden">
+                    <p id="links-result-text"></p>
+                </div>
+                
+                <button id="add-links-btn" class="ingest-submit-btn">Add Links</button>
+                
+                <div id="links-progress" class="ingest-progress hidden">
+                    <div class="spinner"></div>
+                    <p>Adding links...</p>
+                </div>
             </div>
         </div>
     </div>

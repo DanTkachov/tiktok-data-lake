@@ -1561,6 +1561,11 @@ const fileSelected = document.getElementById('file-selected');
 const selectedFilename = document.getElementById('selected-filename');
 const ingestSubmit = document.getElementById('ingest-submit');
 const ingestProgress = document.getElementById('ingest-progress');
+const linksInput = document.getElementById('links-input');
+const addLinksBtn = document.getElementById('add-links-btn');
+const linksResult = document.getElementById('links-result');
+const linksResultText = document.getElementById('links-result-text');
+const linksProgress = document.getElementById('links-progress');
 
 function openIngestModal() {
     selectedFile = null;
@@ -1579,7 +1584,13 @@ function resetIngestModal() {
     dropZone.classList.remove('hidden');
     fileSelected.classList.add('hidden');
     ingestProgress.classList.add('hidden');
+    linksProgress.classList.add('hidden');
+    linksResult.classList.add('hidden');
+    linksResult.classList.remove('success', 'error', 'partial');
     fileInput.value = '';
+    if (linksInput) linksInput.value = '';
+    if (addLinksBtn) addLinksBtn.disabled = false;
+    if (ingestSubmit) ingestSubmit.disabled = false;
 }
 
 function handleFileSelect(file) {
@@ -1697,6 +1708,73 @@ function setupIngestModal() {
                 alert('Failed to ingest JSON file: ' + error.message);
                 resetIngestModal();
                 ingestSubmit.disabled = false;
+            }
+        });
+    }
+    
+    // Add links button
+    if (addLinksBtn && linksInput) {
+        addLinksBtn.addEventListener('click', async () => {
+            const links = linksInput.value.trim();
+            if (!links) {
+                alert('Please enter some TikTok links');
+                return;
+            }
+            
+            addLinksBtn.disabled = true;
+            linksProgress.classList.remove('hidden');
+            linksResult.classList.add('hidden');
+            linksResult.classList.remove('success', 'error', 'partial');
+            
+            try {
+                const response = await fetch(`/api/admin/ingest-links?links=${encodeURIComponent(links)}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const stats = result.result;
+                    
+                    if (stats.inserted > 0 && stats.invalid === 0) {
+                        linksResult.classList.add('success');
+                        linksResultText.textContent = `Success! Added ${stats.inserted} links, skipped ${stats.skipped} duplicates.`;
+                    } else if (stats.inserted > 0 && stats.invalid > 0) {
+                        linksResult.classList.add('partial');
+                        let msg = `Added ${stats.inserted} links, skipped ${stats.skipped} duplicates. ${stats.invalid} invalid links.`;
+                        if (stats.invalid_links && stats.invalid_links.length > 0) {
+                            msg += '\n\nInvalid links:\n' + stats.invalid_links.slice(0, 5).map(l => `• ${l.link}: ${l.reason}`).join('\n');
+                            if (stats.invalid_links.length > 5) {
+                                msg += `\n...and ${stats.invalid_links.length - 5} more`;
+                            }
+                        }
+                        linksResultText.textContent = msg;
+                    } else if (stats.inserted === 0) {
+                        linksResult.classList.add('error');
+                        linksResultText.textContent = `No links added. ${stats.skipped} duplicates, ${stats.invalid} invalid.`;
+                    }
+                    
+                    linksResult.classList.remove('hidden');
+                    
+                    if (stats.inserted > 0) {
+                        setTimeout(() => {
+                            closeIngestModal();
+                            location.reload();
+                        }, 1500);
+                    }
+                } else {
+                    linksResult.classList.add('error');
+                    linksResultText.textContent = 'Error: ' + result.detail;
+                    linksResult.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error adding links:', error);
+                linksResult.classList.add('error');
+                linksResultText.textContent = 'Failed to add links: ' + error.message;
+                linksResult.classList.remove('hidden');
+            } finally {
+                linksProgress.classList.add('hidden');
+                addLinksBtn.disabled = false;
             }
         });
     }
