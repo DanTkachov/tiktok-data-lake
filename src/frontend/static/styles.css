@@ -575,12 +575,11 @@ header h1 {
     position: absolute;
     top: 8px;
     left: 8px;
-    right: 8px;
     z-index: 10;
 }
 
 .tag-input {
-    width: 100%;
+    width: 180px;
     padding: 6px 10px;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 4px;
@@ -605,12 +604,12 @@ header h1 {
     position: absolute;
     top: 100%;
     left: 0;
-    right: 0;
     background: rgba(30, 40, 60, 0.95);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
     margin-top: 4px;
+    width: 180px;
     max-height: 200px;
     overflow-y: auto;
     z-index: 100;
@@ -1255,12 +1254,13 @@ header h1 {
 
 /* Modal Tag Input */
 .modal-tag-input-container {
-    margin-top: 8px;
+    display: inline-block;
+    margin-left: 8px;
 }
 
 .modal-tag-input {
-    width: 100%;
-    padding: 8px 12px;
+    width: 180px;
+    padding: 6px 10px;
     border: 1px solid rgba(92, 122, 156, 0.5);
     border-radius: 6px;
     background: rgba(0, 0, 0, 0.5);

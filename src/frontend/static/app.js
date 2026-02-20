@@ -407,11 +407,9 @@ async function loadStats() {
 
 // Tag Autocomplete Functions
 function createTagAutocomplete(input, videoId, onTagSelected) {
-    // Create dropdown container
     const dropdown = document.createElement('div');
     dropdown.className = 'tag-autocomplete-dropdown hidden';
     
-    // Track if dropdown is being interacted with
     let isDropdownHovered = false;
     
     dropdown.addEventListener('mouseenter', () => {
@@ -422,20 +420,8 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
         isDropdownHovered = false;
     });
 
-    // Helper to position and show dropdown
-    const updatePosition = () => {
-        const rect = input.getBoundingClientRect();
-        dropdown.style.top = `${rect.bottom + window.scrollY}px`;
-        dropdown.style.left = `${rect.left + window.scrollX}px`;
-        dropdown.style.width = `${rect.width}px`;
-        // Ensure z-index is high enough to float above modal (1000)
-        dropdown.style.zIndex = '10001'; 
-        dropdown.style.position = 'absolute';
-    };
-
     const showDropdown = () => {
-        document.body.appendChild(dropdown);
-        updatePosition();
+        input.parentElement.appendChild(dropdown);
         dropdown.classList.remove('hidden');
     };
 
