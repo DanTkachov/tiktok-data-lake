@@ -193,11 +193,13 @@ header h1 {
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 20px;
+    padding-bottom: 80px;
     align-self: flex-start;
     position: sticky;
     top: 20px;
     max-height: calc(100vh - 40px);
     overflow-y: auto;
+    overscroll-behavior-y: contain;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -303,8 +305,8 @@ header h1 {
 }
 
 .collapsible-content {
-    max-height: 1000px;
-    overflow: hidden;
+    max-height: 5000px;
+    overflow: visible;
     transition: max-height 0.3s ease, opacity 0.3s ease;
     opacity: 1;
 }
