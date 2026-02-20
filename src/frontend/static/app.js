@@ -93,6 +93,7 @@ const modalTagInput = document.getElementById('modal-tag-input');
 
 const SIDEBAR_COLLAPSE_KEY = 'tiktok_lake_sidebar_collapse';
 const TAGS_MODE_KEY = 'tiktok_lake_tags_mode';
+const TAGS_STATUS_KEY = 'tiktok_lake_tags_status';
 
 function loadSidebarCollapseState() {
     try {
@@ -155,6 +156,26 @@ function saveTagsMode(mode) {
     }
 }
 
+function loadTagsStatus() {
+    try {
+        const saved = localStorage.getItem(TAGS_STATUS_KEY);
+        if (saved === 'untagged' && filterUntagged) {
+            tagsFilter = 'untagged';
+            filterUntagged.checked = true;
+        }
+    } catch (e) {
+        console.error('Error loading tags status:', e);
+    }
+}
+
+function saveTagsStatus(status) {
+    try {
+        localStorage.setItem(TAGS_STATUS_KEY, status);
+    } catch (e) {
+        console.error('Error saving tags status:', e);
+    }
+}
+
 function setupCollapsibleSections() {
     const collapseBtns = document.querySelectorAll('.collapse-btn, .collapse-btn-small');
     
@@ -186,7 +207,9 @@ function setupCollapsibleSections() {
 async function init() {
     loadSidebarCollapseState();
     loadTagsMode();
+    loadTagsStatus();
     setupCollapsibleSections();
+    updateAllFiltersUi();
     
     // Load stats
     await loadStats();
@@ -305,6 +328,7 @@ async function init() {
     // Untagged filter radio buttons
     if (filterUntagged) {
         filterUntagged.addEventListener('change', () => {
+            saveTagsStatus('untagged');
             updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
@@ -313,6 +337,7 @@ async function init() {
     
     if (filterAllVideos) {
         filterAllVideos.addEventListener('change', () => {
+            saveTagsStatus('all');
             updateAllFiltersUi();
             currentPage = 1;
             loadVideos(1);
