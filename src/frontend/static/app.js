@@ -999,33 +999,24 @@ function generatePageNumbers(current, total) {
 function updatePagination(pagination) {
     currentPage = pagination.page;
     
-    // Update both pagination controls
-    if (pagination.total_pages > 1) {
-        paginationTopEl.classList.remove('hidden');
-        paginationBottomEl.classList.remove('hidden');
-        
-        // Update prev/next buttons
-        prevBtnTop.disabled = !pagination.has_prev;
-        nextBtnTop.disabled = !pagination.has_next;
-        prevBtnBottom.disabled = !pagination.has_prev;
-        nextBtnBottom.disabled = !pagination.has_next;
-        
-        // Generate page numbers
-        const pageNumbersHtml = generatePageNumbers(pagination.page, pagination.total_pages);
-        pageNumbersTop.innerHTML = pageNumbersHtml;
-        pageNumbersBottom.innerHTML = pageNumbersHtml;
-        
-        // Add click handlers to page number buttons
-        document.querySelectorAll('.page-number').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const page = parseInt(e.target.dataset.page);
-                changePage(page);
-            });
+    paginationTopEl.classList.remove('hidden');
+    paginationBottomEl.classList.remove('hidden');
+    
+    prevBtnTop.disabled = !pagination.has_prev;
+    nextBtnTop.disabled = !pagination.has_next;
+    prevBtnBottom.disabled = !pagination.has_prev;
+    nextBtnBottom.disabled = !pagination.has_next;
+    
+    const pageNumbersHtml = generatePageNumbers(pagination.page, Math.max(1, pagination.total_pages));
+    pageNumbersTop.innerHTML = pageNumbersHtml;
+    pageNumbersBottom.innerHTML = pageNumbersHtml;
+    
+    document.querySelectorAll('.page-number').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const page = parseInt(e.target.dataset.page);
+            changePage(page);
         });
-    } else {
-        paginationTopEl.classList.add('hidden');
-        paginationBottomEl.classList.add('hidden');
-    }
+    });
 }
 
 // Add a tag to a video
