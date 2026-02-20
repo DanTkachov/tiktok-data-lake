@@ -24,3 +24,6 @@
 - [ ] Update task queues to skip deleted videos (download, transcription, OCR)
 - [ ] Decide tag handling: hide from sidebar counts or keep associated
 - [ ] Add "Empty Trash" or scheduled cleanup for hard delete
+
+## Database
+- [ ] Add UNIQUE constraint on `(video_id, manual_tag)` in tags table to prevent duplicate tags

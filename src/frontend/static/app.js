@@ -1307,7 +1307,11 @@ async function openVideoModal(videoId) {
             
             // Setup autocomplete for modal tag input
             createTagAutocomplete(newInput, videoId, async (selectedTag) => {
-                await addTagToVideo(videoId, selectedTag);
+                const result = await addTagToVideo(videoId, selectedTag);
+                if (result.status === 'error') {
+                    console.warn('Failed to add tag:', result.message);
+                    return;
+                }
                 await loadVideoTags(videoId);
                 await loadAllTags();
                 
@@ -1331,7 +1335,10 @@ async function openVideoModal(videoId) {
                     if (value) {
                         const tags = value.split(',').map(t => t.trim()).filter(t => t);
                         for (const tag of tags) {
-                            await addTagToVideo(videoId, tag);
+                            const result = await addTagToVideo(videoId, tag);
+                            if (result.status === 'error') {
+                                console.warn(`Skipped tag "${tag}": ${result.message}`);
+                            }
                         }
                         await loadVideoTags(videoId);
                         await loadAllTags();
