@@ -557,7 +557,7 @@ function createTagAutocomplete(input, videoId, onTagSelected) {
                 }
                 return a.tag.localeCompare(b.tag);
             })
-            .slice(0, 5);
+            .slice(0, 15);
         
         if (matches.length === 0) {
             hideDropdown();
