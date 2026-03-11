@@ -27,3 +27,70 @@
 
 ## Database
 - [ ] Add UNIQUE constraint on `(video_id, manual_tag)` in tags table to prevent duplicate tags
+
+
+ Here is my proposed refactoring plan:
+
+
+  1. Backend Refactor (FastAPI & Python)
+  The backend currently mixes database access, business logic (OCR, Transcription), and API routing.
+
+
+   * Layered Architecture:
+       * Routes: Break api.py into smaller routers (e.g., videos.py, tags.py, admin.py) using fastapi.APIRouter.
+       * Services: Move heavy logic (RapidOCR, Faster-Whisper, TikTokApi) from db.py into a src/services/ directory.
+       * Repositories: Implement a Repository pattern in src/repositories/ to abstract SQLite queries. This removes raw SQL from
+         your API routes.
+       * Models: Use Pydantic for request validation and response serialization instead of raw dictionaries.
+   * Database Management:
+       * Extract database initialization and connection pooling from db.py into src/database.py.
+       * Consider using an ORM like SQLAlchemy or SQLModel to handle the schema more safely, though sticking with optimized raw SQL
+         in repositories is also fine if performance is critical.
+
+
+  2. Frontend Refactor (JavaScript & CSS)
+  The app.js file is currently 2,000+ lines of vanilla JS with global state and manual DOM manipulation, which is very fragile.
+
+
+   * Component-Based Structure:
+       * Adopt a modern framework. Given the complexity (filtering, search, modals, tagging), React or Vue would be ideal. If you
+         prefer to stay closer to "Vanilla," Svelte or Alpine.js would provide structure without much boilerplate.
+       * Break the UI into components: VideoGrid, SidebarFilters, VideoModal, TagManager, and StatsHeader.
+   * State Management:
+       * Replace global variables with a centralized state (e.g., React Context, Vuex/Pinia, or a simple Store object if staying
+         vanilla).
+       * Sync state (like filters and search) with the URL query parameters so users can share links to specific searches.
+   * Data Fetching:
+       * Create a dedicated api-client.js to handle all fetch calls, error handling, and response parsing.
+   * Styling:
+       * Break styles.css into modular CSS files corresponding to components.
+       * Use CSS Variables for consistent spacing, colors, and transitions.
+
+  3. Proposed Directory Structure
+
+
+    1 src/
+    2 ├── api/                # FastAPI Routers
+    3 │   ├── admin.py
+    4 │   ├── stats.py
+    5 │   └── videos.py
+    6 ├── core/               # Configuration and Constants
+    7 ├── database/           # DB connection and session management
+    8 ├── repositories/       # Data access (SQL logic)
+    9 ├── services/           # Business logic (OCR, Whisper, TikTok API)
+   10 ├── tasks/              # Celery task definitions
+   11 └── frontend/
+   12     ├── static/
+   13     │   ├── css/        # Modular CSS
+   14     │   └── js/         # Framework-based components
+   15     │       ├── components/
+   16     │       ├── services/ # API Client
+   17     │       └── store/    # State Management
+   18     └── templates/      # Main HTML entry point
+
+
+  Next Steps
+   1. Phase 1: Decouple db.py by moving processing logic to services/.
+   2. Phase 2: Split api.py into routers.
+   3. Phase 3: Initialize a frontend framework (e.g., Vite + React/Svelte) and begin porting app.js logic component by component.
+
