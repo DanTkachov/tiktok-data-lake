@@ -1,5 +1,7 @@
 # TikTok Data Lake - TODO
 
+FIX PATHING - SHOULDNT IMPORT SYS A TON IN api.py
+
 ## Performance
 - [ ] Investigate SQLite database contention during heavy download activity
   - Consider connection pooling
