@@ -1,5 +1,5 @@
 from transformers import pipeline
-from db import get_connection
+from src.backend.db import get_connection
 
 
 # ============================================================

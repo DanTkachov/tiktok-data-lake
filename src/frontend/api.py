@@ -6,25 +6,17 @@ Provides API endpoints for browsing, searching, and streaming videos from the da
 
 import sys
 from pathlib import Path
-
-# Add parent directory to path to import db module
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
-import sqlite3
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 import json
 
-from db import get_connection, DB_PATH, init_database
-
-# Fix import path for tasks module
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-import src.tasks as tasks_module
+from src.backend.db import get_connection, DB_PATH, init_database
+import src.backend.tasks as tasks_module
 
 app = FastAPI(
     title="TikTok Data Lake",
@@ -647,10 +639,7 @@ async def add_video_tag(video_id: str, tag: str = Query(..., description="Tag to
 
     Creates a new tag entry in the tags table for the specified video.
     """
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from tagging import add_tags_to_post
+    from src.backend.tagging import add_tags_to_post
 
     result = add_tags_to_post(video_id, tag)
 
@@ -669,10 +658,7 @@ async def remove_video_tag(
 
     Deletes the tag entry from the tags table for the specified video.
     """
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from tagging import remove_tags_from_post
+    from src.backend.tagging import remove_tags_from_post
 
     result = remove_tags_from_post(video_id, tag)
 
@@ -689,10 +675,7 @@ async def get_video_tags(video_id: str):
 
     Returns both manual tags and automatic tags with confidence scores.
     """
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from tagging import get_post_tags
+    from src.backend.tagging import get_post_tags
 
     result = get_post_tags(video_id)
 
@@ -712,10 +695,7 @@ async def get_all_tags_endpoint():
         Returns a list of all tags with their usage counts for the frontend
     to display as filter options.
     """
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from tagging import get_all_tags
+    from src.backend.tagging import get_all_tags
 
     result = get_all_tags()
 
@@ -1065,7 +1045,7 @@ async def admin_ingest_json(json_file: UploadFile = File(...)):
         try:
             # Ingest the JSON file
             # Import ingest_json from db module directly
-            from db import ingest_json
+            from src.backend.db import ingest_json
 
             result = ingest_json(temp_path)
 

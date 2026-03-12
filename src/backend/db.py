@@ -17,9 +17,9 @@ import numpy as np
 from PIL import Image
 
 
-db_path_real = Path(__file__).parent.parent / "db" / "tiktok_archive_real.db"
-db_path_mock = Path(__file__).parent.parent / "db" / "tiktok_archive_mock.db"
-db_path_mock_100 = Path(__file__).parent.parent / "db" / "tiktok_archive_mock_100.db"
+db_path_real = Path(__file__).parent.parent.parent / "db" / "tiktok_archive_real.db"
+db_path_mock = Path(__file__).parent.parent.parent / "db" / "tiktok_archive_mock.db"
+db_path_mock_100 = Path(__file__).parent.parent.parent / "db" / "tiktok_archive_mock_100.db"
 
 
 DB_PATH = Path(os.environ.get("DB_PATH", db_path_mock_100))

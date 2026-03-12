@@ -1,6 +1,6 @@
 import time
 from transformers import pipeline
-from db import get_connection
+from src.backend.db import get_connection
 
 
 def add_tags_to_post(video_id, tag_text):

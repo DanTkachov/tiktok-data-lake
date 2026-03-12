@@ -12,7 +12,7 @@ services:
 
   worker-downloads:
     build: .
-    command: celery -A src.tasks worker --queues=downloads --concurrency=${DOWNLOADS_CONCURRENCY:-1} -n downloads_worker --loglevel=info
+    command: celery -A src.backend.tasks worker --queues=downloads --concurrency=${DOWNLOADS_CONCURRENCY:-1} -n downloads_worker --loglevel=info
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}
@@ -26,7 +26,7 @@ services:
 
   worker-transcription:
     build: .
-    command: celery -A src.tasks worker --queues=transcription --concurrency=${TRANSCRIPTION_CONCURRENCY:-4} -n transcription_worker --loglevel=info
+    command: celery -A src.backend.tasks worker --queues=transcription --concurrency=${TRANSCRIPTION_CONCURRENCY:-4} -n transcription_worker --loglevel=info
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}
@@ -40,7 +40,7 @@ services:
 
   worker-ocr:
     build: .
-    command: celery -A src.tasks worker --queues=ocr --concurrency=${OCR_CONCURRENCY:-4} -n ocr_worker --loglevel=info
+    command: celery -A src.backend.tasks worker --queues=ocr --concurrency=${OCR_CONCURRENCY:-4} -n ocr_worker --loglevel=info
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}
@@ -54,7 +54,7 @@ services:
 
   web:
     build: .
-    command: python src/frontend/start_server.py
+    command: python -m src.frontend.start_server
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DB_PATH=${DB_PATH:-/app/data/tiktok_archive.db}

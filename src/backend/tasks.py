@@ -1,13 +1,13 @@
 import asyncio
 import os
 from celery import Celery
-from src.db import download_video_and_store
+from src.backend.db import download_video_and_store
 from TikTokApi import TikTokApi
 
 redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 app = Celery("tasks", backend=redis_url, broker=redis_url)
 app.conf.task_routes = {
-    "src.tasks.download_task": {"queue": "downloads", "rate_limit": "25/m"}
+    "src.backend.tasks.download_task": {"queue": "downloads", "rate_limit": "25/m"}
 }
 
 # Global state to hold the persistent loop and API session
